@@ -12,9 +12,9 @@
 #'
 #' @examples
 #' if(interactive()){
-#' protegR_fct_validate_password(pwd1, pwd2, min_length = 5)
+#' protegR2_fct_validate_password(pwd1, pwd2, min_length = 5)
 #' }
-protegR_fct_validate_password <- function(pwd1, pwd2, min_length = 5) {
+protegR2_fct_validate_password <- function(pwd1, pwd2, min_length = 5) {
 
   if (pwd1 != pwd2) {
     showNotification("Les deux mots de passe ne correspondent pas.", type = "error")
@@ -43,9 +43,9 @@ utils::globalVariables(c(
 #'
 #' @examples
 #' if(interactive()){
-#' protegR_fct_change_pwd(username, new_hash,config_s3_location)
+#' protegR2_fct_change_pwd(username, new_hash,config_s3_location)
 #' }
-protegR_fct_change_pwd <- function(username,
+protegR2_fct_change_pwd <- function(username,
                                    new_hash,
                                    config_s3_location) {
   # Sauvegarde du nouveau hachage

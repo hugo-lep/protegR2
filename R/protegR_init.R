@@ -8,9 +8,9 @@
 #' @export
 #'
 #' @examples
-#' if (interactive()) protegR_init()
-protegR_init <- function() {
-  source_dir <- system.file("files_to_copy", package = "protegR")
+#' if (interactive()) protegR2_init()
+protegR2_init <- function() {
+  source_dir <- system.file("files_to_copy", package = "protegR2")
   if (source_dir == "") stop("Le dossier 'inst/files_to_copy/' est introuvable dans le package.")
 
   ask_overwrite <- function(from, to_dir) {
@@ -23,14 +23,14 @@ protegR_init <- function() {
     TRUE
   }
 
-  from <- file.path(source_dir, "dev/01_protegR_start.R")
+  from <- file.path(source_dir, "dev/01_protegR2_start.R")
   to_dir <- file.path("inst/dev")
   dir.create(to_dir, recursive = TRUE, showWarnings = FALSE)
   if (ask_overwrite(from, to_dir)) {
     file.copy(from, to_dir, overwrite = TRUE)
-    message("✅ Copie de b01_protegR_start.R→ inst/dev")
+    message("✅ Copie de b01_protegR2_start.R→ inst/dev")
 
-    ligne_a_ajouter <- "inst/dev/01_protegR_start.R"
+    ligne_a_ajouter <- "inst/dev/01_protegR2_start.R"
     if (file.exists(".gitignore")) {
       lignes <- readLines(".gitignore")
       if (!(ligne_a_ajouter %in% lignes)) {
@@ -52,7 +52,7 @@ protegR_init <- function() {
 #' Copier les fichiers d'exemple du package vers l'application en construction
 #'
 #' @description
-#' Cette fonction copie certains fichiers inclus dans le package protegR`
+#' Cette fonction copie certains fichiers inclus dans le package protegR2`
 #' vers l'arborescence d'une application Shiny en construction. Chaque groupe est contrôlé par un paramètre booléen.
 #' Un message s'affiche si un fichier existe déjà pour demander s’il doit être écrasé.
 #'
@@ -65,10 +65,10 @@ protegR_init <- function() {
 #'
 #' @examples
 #' if (interactive()) {
-#'   protegR_copy_files(background = TRUE, app = TRUE, R_files = TRUE)
+#'   protegR2_copy_files(background = TRUE, app = TRUE, R_files = TRUE)
 #' }
-protegR_copy_files <- function(background = FALSE, app = FALSE, R_files = FALSE) {
-  source_dir <- system.file("files_to_copy", package = "protegR")
+protegR2_copy_files <- function(background = FALSE, app = FALSE, R_files = FALSE) {
+  source_dir <- system.file("files_to_copy", package = "protegR2")
   if (source_dir == "") stop("Le dossier 'inst/files_to_copy/' est introuvable dans le package.")
 
   ask_overwrite <- function(from, to_dir) {
@@ -143,9 +143,9 @@ protegR_copy_files <- function(background = FALSE, app = FALSE, R_files = FALSE)
 #'     s3_bucket = "mon-bucket",
 #'     s3_main_folder = "mon-dossier"
 #'   )
-#'   protegR_init_record_s3_users_auth_file()
+#'   protegR2_init_record_s3_users_auth_file()
 #' }
-protegR_init_record_s3_users_auth_file <- function() {
+protegR2_init_record_s3_users_auth_file <- function() {
 
   s3_connection_HL()
 
@@ -158,7 +158,7 @@ protegR_init_record_s3_users_auth_file <- function() {
                       password_store("pass4"),
                       password_store("pass5")),
     role = c("user", "user", "admin", "super_admin", "dev"),
-    created_by = rep("protegR_init", 5),
+    created_by = rep("protegR2_init", 5),
     inactivity_delay = rep(5, 5),
     active = TRUE,
     expire_date = today() + c(7, 8, 9, 10, NA),
@@ -170,22 +170,22 @@ protegR_init_record_s3_users_auth_file <- function() {
 }
 
 
-#' Version par défaut de `protegR_init_record_s3_users_auth_file`
+#' Version par défaut de `protegR2_init_record_s3_users_auth_file`
 #'
 #' @description
 #' Wrapper de la fonction principale. Lit les fichiers `config_s3_access.rds` et `config_s3_location.rds`
-#' depuis le dossier `inst/app/data/`, puis appelle `protegR_init3_record_s_users_auth_file()`.
+#' depuis le dossier `inst/app/data/`, puis appelle `protegR2_init3_record_s_users_auth_file()`.
 #'
 #' @return Rien.
 #' @export
 #'
 #' @examples
 #' if (interactive()) {
-#'   protegR_init_record_s3_users_auth_file_default()
+#'   protegR2_init_record_s3_users_auth_file_default()
 #' }
-protegR_init_record_s3_users_auth_file_default <- function() {
+protegR2_init_record_s3_users_auth_file_default <- function() {
   config_s3_location <- readRDS("inst/app/data/config_s3_location.rds")
-  protegR_init_record_s3_users_auth_file()
+  protegR2_init_record_s3_users_auth_file()
 }
 
 #' @title créer fichier initial config_global
@@ -200,9 +200,9 @@ protegR_init_record_s3_users_auth_file_default <- function() {
 #'
 #' @examples
 #' if(interactive()){
-#' protegR_init_config_global(cookie_name = "test")
+#' protegR2_init_config_global(cookie_name = "test")
 #' }
-protegR_init_config_global <- function(name, value) {
+protegR2_init_config_global <- function(name, value) {
 
 #  config_s3_location <- readRDS("inst/app/data/config_s3_location.rds")
   key <- file.path("config_files", "config_global.rds")

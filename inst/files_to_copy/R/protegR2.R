@@ -1,5 +1,5 @@
-print("protegR_ui")
-protegR_ui <- function(config_global, idioma = TRUE) {
+print("protegR2_ui")
+protegR2_ui <- function(config_global, idioma = TRUE) {
 
   add_cookie_handlers(
     dashboardPage(
@@ -66,9 +66,9 @@ protegR_ui <- function(config_global, idioma = TRUE) {
   )
 }
 
-print("protegR_server")
+print("protegR2_server")
 
-protegR_server <- function(input, output, session) {
+protegR2_server <- function(input, output, session) {
   ns <- session$ns
 
   # * ------ AWS connect + load config --------------------------------------
@@ -96,7 +96,7 @@ protegR_server <- function(input, output, session) {
   just_logged_out <- reactiveVal(FALSE) # pour éviter de lire les cookies au logout, juste avant qu'ils soient effacés
 
   # Fonction pour ne pas à devoir modifier ce fichier (load tous les modules utilisés par l'app)
-  protegR_load_modules_servers(sessions, input, session)
+  protegR2_load_modules_servers(sessions, input, session)
 
   observeEvent(input$select_idioma, {
     session$userData$idioma(input$select_idioma)
@@ -201,7 +201,7 @@ protegR_server <- function(input, output, session) {
   my_dashboard <- reactive({
     req(session$userData$user_info$user_role())
 
-    protegR_load_modules_UIs(session, tr)
+    protegR2_load_modules_UIs(session, tr)
   })
 
   # pour resélectionner le même item dans le sidebarmenu après que la langue ait été changée
@@ -237,7 +237,7 @@ protegR_server <- function(input, output, session) {
       # Écran de login simple
       fluidPage(
         h2("Connexion"),
-        protegR_login_ui(),
+        protegR2_login_ui(),
 
         tags$script(HTML("
   $(document).on('keydown', '#username, #password', function(e) {

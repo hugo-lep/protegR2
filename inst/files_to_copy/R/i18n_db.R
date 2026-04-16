@@ -11,7 +11,7 @@ i18n_db <- list(
   bienvenue = list(fr = "Bienvenue", en = "Welcome", es = "Bienvenido"),
   logout = list(fr = "Déconnexion", en = "Logout", es = "Cerrar sesión"),
 
-  # protegR_load_modules_UIs
+  # protegR2_load_modules_UIs
   menu1_sidebar_type_access = list(fr = "Menu 1: type d'accès", en = "Menu 1: Access type", es = "Menú 1: Tipo de acceso"),
   menu2_module_demo = list(fr = "Menu 2: module démo", en = "Menu 2: Demo module", es = "Menú 2: Módulo de demostración"),
   subItem_test = list(fr = "Test de sous-élément", en = "SubItem test", es = "Prueba de subelemento"),

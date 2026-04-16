@@ -1,5 +1,5 @@
-print("protegR_load_modules_UIs")
-protegR_load_modules_UIs <- function(session, tr) {
+print("protegR2_load_modules_UIs")
+protegR2_load_modules_UIs <- function(session, tr) {
   req(session$userData$user_info$user_role())
 
   role <- session$userData$user_info$user_role()

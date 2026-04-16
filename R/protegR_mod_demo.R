@@ -1,4 +1,4 @@
-#' @title module demo de protegR, servant à présenter la structure
+#' @title module demo de protegR2, servant à présenter la structure
 #'
 #' @param id ID du module
 #' @param tr Fonction de traduction retournée par make_tr()
@@ -22,7 +22,7 @@ mod_demo1_ui <- function(id, tr) {
   )
 }
 
-#' @title module demo de protegR, servant à présenter la structure, section serveur
+#' @title module demo de protegR2, servant à présenter la structure, section serveur
 #'
 #' @param id ID du module
 #'
@@ -43,7 +43,7 @@ mod_demo1_server <- function(id) {
   })
 }
 
-#' @title module demo de protegR, servant à présenter la structure + détail du role
+#' @title module demo de protegR2, servant à présenter la structure + détail du role
 #'
 #' @description
 #' Particularité de ce module, en fait il ne s'agit que d'un fonction, car il n'y avait pas
@@ -197,7 +197,7 @@ mod_demo_airplane_server <- function(id) {
   moduleServer(id, function(input, output, session) {
 
     # Déclare les ressources du package
-    addResourcePath("static", system.file("app/www", package = "protegR"))
+    addResourcePath("static", system.file("app/www", package = "protegR2"))
 
     observe({
       session$sendCustomMessage(

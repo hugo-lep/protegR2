@@ -18,24 +18,24 @@ library(here)
 
 
 # copie des fichies nécessaires à l'application par défaut
-# La plupart des fichiers sont inclus dans le package protegR
+# La plupart des fichiers sont inclus dans le package protegR2
 # Mais certains fichiers devront être modifier en fonction de chaque application à construire.
 # Ce sont ces fichiers "à modifier" qui sont copier dans le projet
-protegR_copy_files(background = TRUE, app = TRUE, R_files = TRUE)
-protegR_copy_files(app = TRUE, R_files = TRUE)
+protegR2_copy_files(background = TRUE, app = TRUE, R_files = TRUE)
+protegR2_copy_files(app = TRUE, R_files = TRUE)
 
 # Packages CRAN
 renv::install(c("here","shiny","shinydashboard","tidyr","purrr","readr",
                    "dplyr","shinyWidgets","uuid","stringr","sodium","cookies","shinyjs","glue"))
 # Packages perso (utilsHL ici comme exemple, remplacer chemin par ton dossier local ou GitHub)
-renv::install(c("hugo-lep/protegR@dev","hugo-lep/utilsHL"))
+renv::install(c("hugo-lep/protegR2@dev","hugo-lep/utilsHL"))
 
 
 
 # Enregistrement du fichier + fichier confit_s3_location.rds sera ajouté à .gitignore
 # En deux étapes pour ne pas copier cette information sur github
 # Un fichier est enregistré en local dans le projet, et ajouté à .gitignore
-protegR_init_s3path(s3_bucket = "my_bucket",
+protegR2_init_s3path(s3_bucket = "my_bucket",
                     s3_main_folder = "the_main_folder",
                     secure_key = "12345")
 
@@ -50,7 +50,7 @@ set_config_s3_location(
 # ---- AWS ----------------------------------------------------------------
 # ------ 2e étape: enregistrer les informations pour accéder à bucket et dossier principal sur S3
 # (option 1): Enregistrer les informations pour se connecter à S3/AWS
-protegR_init_s3access(
+protegR2_init_s3access(
   AWS_ACCESS_KEY_ID = "123",
   AWS_SECRET_ACCESS_KEY = "456",
   AWS_DEFAULT_REGION = "no_where",              # écrire "" avec OVH
@@ -91,8 +91,8 @@ s3_connection_HL()
 # Ce fichier contient 2 utilisateurs différents, un admin, un super_admin, un dev
 # Si les étapes 1 et 2 on été fait tel qu'expliqué, la fonction ne nécessite pas de variable.
 
-# protegR_init3_record_s3_users_auth_file() avec lecture automatique de fichier
-protegR_init_record_s3_users_auth_file_default()
+# protegR2_init3_record_s3_users_auth_file() avec lecture automatique de fichier
+protegR2_init_record_s3_users_auth_file_default()
 #utilisateur par défaut: user/password
 # user1/pass1 -> role = user
 # user2/pass2 -> role = user
@@ -103,12 +103,12 @@ protegR_init_record_s3_users_auth_file_default()
 
 # Enregistrer sur S3 le fichier qui servira à conserver toutes les informations globales à toutes les sessions
 # de cette application, en commençant par le nom du cookie qui sera utiliser.
-protegR_init_config_global(name = "cookie_name", value = "test")
-protegR_init_config_global(name = "dashboard_skin", value =  "red")
+protegR2_init_config_global(name = "cookie_name", value = "test")
+protegR2_init_config_global(name = "dashboard_skin", value =  "red")
 # option:c("blue", "black", "purple", "green", "red", "yellow"))
-protegR_init_config_global(name = "cookie_update_time", value =  45)
-protegR_init_config_global(name = "idioma", value =  "en")
-protegR_init_config_global(name = "header_title", value =  "protegR demo")
+protegR2_init_config_global(name = "cookie_update_time", value =  45)
+protegR2_init_config_global(name = "idioma", value =  "en")
+protegR2_init_config_global(name = "header_title", value =  "protegR2 demo")
 
 # si Git n'est pas déjà installé sur EC2
 # sudo apt update
@@ -118,7 +118,7 @@ protegR_init_config_global(name = "header_title", value =  "protegR demo")
 renv::install(c(
   "here","shiny","shinydashboard","tidyr","purrr","readr","dplyr","shinyWidgets",
   "uuid","stringr","sodium","cookies","shinyjs","glue"))
-renv::install(c("hugo-lep/protegR@dev","hugo-lep/utilsHL"))
+renv::install(c("hugo-lep/protegR2@dev","hugo-lep/utilsHL"))
 renv::snapshot()
 
 
@@ -169,7 +169,7 @@ renv::snapshot()
 
 # Même étape qu'en local, copier le fichier indiquant le bucket + dossier principal
 # Dans EC2/R
-# library(protegR)
-protegR_init_s3path(s3_bucket = "avnumbers",
+# library(protegR2)
+protegR2_init_s3path(s3_bucket = "avnumbers",
                     s3_main_folder = "pascan",
                     secure_key = "12345")
