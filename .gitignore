@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rdata
+.httr-oauth
+.DS_Store
+.quarto
+inst/temp_R_files/
+inst/package_dev/
+inst/doc
+**/.quarto/

@@ -1,0 +1,32 @@
+Package: protegR2
+Type: Package
+Title: What the Package Does (Title Case)
+Version: 0.1.0
+Authors@R: c(
+    person(
+      "Jane", "Doe",
+      email = "jane@example.com",
+      role = c("aut", "cre")
+    )
+  )
+Description: More about what it does (maybe more than one line).
+    Continuation lines should be indented.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.3
+Imports: 
+    cookies,
+    digest,
+    dplyr,
+    hms,
+    lubridate,
+    magrittr,
+    rlang,
+    s3db (>= 0.1.0),
+    shiny,
+    stringr,
+    tibble,
+    uuid
+Remotes: 
+    hugo-lep/s3db
