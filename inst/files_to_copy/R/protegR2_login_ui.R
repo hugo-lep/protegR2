@@ -1,5 +1,5 @@
-print("protegR_login_ui")
-protegR_login_ui <- function(){
+print("protegR2_login_ui")
+protegR2_login_ui <- function(){
   tagList(
     tags$div(
       style = "

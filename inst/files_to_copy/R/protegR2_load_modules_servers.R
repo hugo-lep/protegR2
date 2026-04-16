@@ -1,5 +1,5 @@
-print("protegR_load_modules_servers")
-protegR_load_modules_servers <- function(sessions,
+print("protegR2_load_modules_servers")
+protegR2_load_modules_servers <- function(sessions,
                                          input_main_app,
                                          main_session) {
   mod_demo1_server("demo1")

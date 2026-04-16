@@ -273,7 +273,7 @@ mod_config_server <- function(id,
 
     ns <- session$ns
     config_s3_location <- session$userData$config_s3_location
-    print(str_c("à partir de protegR_mod_config_server: ", config_s3_location))
+    print(str_c("à partir de protegR2_mod_config_server: ", config_s3_location))
 
     # * ------ My account server ---------------------------------------------------------------
     observeEvent(input$save_password, {
@@ -291,12 +291,12 @@ mod_config_server <- function(id,
         return(NULL)
       }
 
-      if (!protegR_fct_validate_password(input$password1, input$password2)) return(NULL)
+      if (!protegR2_fct_validate_password(input$password1, input$password2)) return(NULL)
 
       print("avant changement de password")
       print(str_c("username: ", session$userData$user_info$valid_user()$username))
 
-      protegR_fct_change_pwd(username = session$userData$user_info$valid_user()$username,
+      protegR2_fct_change_pwd(username = session$userData$user_info$valid_user()$username,
                              new_hash = password_store(input$password1),
                              config_s3_location = config_s3_location)
       print("après changement de password")
@@ -393,9 +393,9 @@ mod_config_server <- function(id,
         return(NULL)
       }
 
-      if (!protegR_fct_validate_password(input$password3, input$password4)) return(NULL)
+      if (!protegR2_fct_validate_password(input$password3, input$password4)) return(NULL)
 
-      protegR_fct_change_pwd(username = selected_user() %>% pull(username),
+      protegR2_fct_change_pwd(username = selected_user() %>% pull(username),
                              new_hash = password_store(input$password3),
                              config_s3_location)
 
@@ -429,7 +429,7 @@ mod_config_server <- function(id,
         return(NULL)
       }
 
-      if (!protegR_fct_validate_password(input$new_user_password, input$new_user_repeat_password)) return(NULL)
+      if (!protegR2_fct_validate_password(input$new_user_password, input$new_user_repeat_password)) return(NULL)
 
       if (input$new_user_password != input$new_user_repeat_password) {
         showNotification("Les deux nouveaux mots de passe ne correspondent pas.", type = "error")
