@@ -30,3 +30,5 @@ Imports:
     uuid
 Remotes: 
     hugo-lep/s3db
+URL: https://github.com/hugo-lep/protegR2
+BugReports: https://github.com/hugo-lep/protegR2/issues
