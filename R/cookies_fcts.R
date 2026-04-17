@@ -17,42 +17,36 @@
 #' }
 cookie_set_user <- function(input, session) {
   message("############################## user_cookie_set: début #####################################")
-  #(username, hash_password, session_timeout_mins = 15, session)
 
-  finger_print <- get_fingerprint(input)
-  token_value <- session$userData$user_info$token_value
+  finger_print        <- get_fingerprint(input)
+  token_value         <- session$userData$user_info$token_value
   session_timeout_mins <- session$userData$user_info$valid_user()$inactivity_delay
-  username <- session$userData$user_info$valid_user()$username
-  hash_password <- session$userData$user_info$valid_user()$hash_password
-  cookie_name <- session$userData$config_global$cookie_name
+  username            <- session$userData$user_info$valid_user()$username
+  cookie_name         <- session$userData$config_global$cookie_name
 
-  message(str_c("token_value = "), token_value)
-
+  # Fichier de session sauvegardé sur S3 — contient uniquement ce qui est
+  # nécessaire pour valider la session : token, expiration, fingerprint, username.
+  # Le hash du mot de passe n'est JAMAIS stocké ici (inutile + risque de sécurité).
   data_to_save_S3 <- tibble(
-    token_value = token_value,
-    expiration = Sys.time() + (session_timeout_mins * 60),
+    token_value  = token_value,
+    expiration   = Sys.time() + (session_timeout_mins * 60),
     finger_print = finger_print$fingerprint,
-    username = username,
-    hash_password = hash_password
+    username     = username
   )
-  print(data_to_save_S3)
 
-#  print(str_c("user_cookie_set: ", session$userData$config_s3_location$s3_bucket))
   s3saveRDS_HL(
-    value = data_to_save_S3,
+    value       = data_to_save_S3,
     object_name = paste0("session/", token_value, ".rds")
   )
+  message("Fichier de session sauvegardé sur S3 : token / expiration / fingerprint / username")
 
-  message("token file save on S3: token / expiration / username / hash_password")
-  print(data_to_save_S3)
-
-  print(str_c("debug:", session$userData$config_s3_location))
-
-  set_cookie(cookie_name = cookie_name,
+  # Le cookie côté navigateur contient uniquement le token (UUID aléatoire).
+  # La valeur en jours est : minutes / (24h * 60min)
+  set_cookie(cookie_name  = cookie_name,
              cookie_value = token_value,
-             expiration = session_timeout_mins / 24 / 60)
+             expiration   = session_timeout_mins / 24 / 60)
 
-  message("AvumbeRs cookie save")
+  message("Cookie navigateur enregistré")
   message("############################## user_cookie_set: fin #####################################")
 }
 

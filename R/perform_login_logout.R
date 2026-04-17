@@ -17,16 +17,15 @@
 perform_login <- function(valid_user, token_value, input, session) {
   print("############################## perform login: début #####################################")
 
+  # Mise à jour des informations de session dans userData
   session$userData$user_info$token_value <- token_value
   session$userData$user_info$valid_user(valid_user)
   session$userData$user_info$user_role(valid_user$role)
 
-  print(str_c("user_auth = ", valid_user$username))
+  message(str_c("Utilisateur connecté : ", valid_user$username, " | rôle : ", valid_user$role))
 
-  print(str_c("token value au login: ", session$userData$user_info$token_value))
+  # Enregistrement du cookie navigateur + fichier de session sur S3
   cookie_set_user(input = input, session = session)
-
-  print(session$userData$user_info)
 
   print("############################## perform login: terminé #####################################")
 }
