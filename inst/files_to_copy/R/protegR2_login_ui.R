@@ -65,14 +65,13 @@ protegR2_login_ui <- function(config_global, tr = NULL) {
     # Shiny sert ce dossier à la racine : url('background.png')
     tags$style(HTML("
 
-      /* Fond plein écran — remplace background-color par background-image si tu as une image */
+      /* Fond plein écran — remplace background.png dans www/ par ta propre image */
       .login-background {
         min-height: 100vh;
         width: 100%;
-        background-color: #2c3e50;
-        /* background-image: url('background.png'); */
-        /* background-size: cover; */
-        /* background-position: center center; */
+        background-image: url('background.png');
+        background-size: cover;
+        background-position: center center;
         display: flex;
         align-items: center;
         justify-content: center;
