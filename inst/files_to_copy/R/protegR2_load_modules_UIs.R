@@ -1,42 +1,92 @@
 print("protegR2_load_modules_UIs")
+
+# Ce fichier est copié dans R/ de ton projet à l'initialisation.
+# C'est ici que tu branches tes propres modules Shiny.
+#
+# La fonction retourne une liste de nav_panel() et nav_menu() — des objets bslib.
+# protegR2_ui() reçoit cette liste et l'affiche selon le style choisi
+# ("sidebar", "navbar", "fluid", "fillable"). Tu n'as pas besoin de savoir
+# quel style sera utilisé ici : tu construis juste la liste de panneaux.
+#
+# Logique de navigation :
+#   nav_panel("Titre", ui)          → un panneau simple
+#   nav_menu("Titre",               → un groupe avec sous-panneaux
+#     nav_panel("Sous-titre", ui),
+#     nav_panel("Sous-titre", ui)
+#   )
+#
+# Logique conditionnelle par rôle :
+#   Les panneaux sont ajoutés à la liste uniquement si la condition est vraie.
+#   Les 4 rôles disponibles : "user", "admin", "super_admin", "dev"
+
 protegR2_load_modules_UIs <- function(session, tr) {
   req(session$userData$user_info$user_role())
 
   role <- session$userData$user_info$user_role()
-  my_dashboard <- list(menu_items = list(), tab_items = list())
 
-  if (TRUE) {
-    my_dashboard <- add_mod_ui(my_dashboard, tr("menu1_sidebar_type_access"), "Menu1",
-                               mod_demo2_ui("demo2", session = session))
-  }
-  if (TRUE) {
-    my_dashboard <- add_mod_ui(my_dashboard, tr("menu2_module_demo"), "Menu2",
-                               mod_demo1_ui("demo1", tr))
-  }
+  # ── Panneaux principaux ──────────────────────────────────────────────────────
+  # Visibles pour tous les rôles.
+  # Remplace ces modules par les tiens selon ton projet.
 
-  if (TRUE) {
-    my_dashboard <- add_mod_ui(my_dashboard, tr("subItem_test"), my_tabName = NA, ui = NA,
-                               subitems = list(
-                                 add_mod_ui_sub(TRUE, tr("subitem1"), my_tabName = "subitem1",
-                                                ui = mod_demo_subitem1_ui("subitem1")),
-                                 add_mod_ui_sub(TRUE, tr("subitem2"), my_tabName = "subitem2",
-                                                ui = mod_demo_airplane_ui("turn_plane"))
-                               ))
-  }
+  panels <- list(
 
-  #tab item de configuration
-  my_dashboard <- add_mod_ui(
-    my_dashboard, tr("configuration"), my_tabName = NA, ui = NA,
-    subitems = list(
-      add_mod_ui_sub(TRUE, tr("your_account"), my_tabName = "config_user", ui = mod_config_ui1("config")),
-      add_mod_ui_sub(role %in% c("admin", "super_admin", "dev"),
-                     tr("admin_access"), my_tabName = "config_admin", ui = mod_config_ui2("config")),
-      add_mod_ui_sub(role %in% c("super_admin", "dev"),
-                     tr("super_admin_access"), my_tabName = "config_super_admin", ui = mod_config_ui3("config")),
-      add_mod_ui_sub(role == "dev",
-                     tr("dev_access"), my_tabName = "config_dev", ui = mod_config_ui4("config"))
+    nav_panel(tr("menu1_sidebar_type_access"),
+      icon = icon("house"),
+      mod_demo2_ui("demo2", session = session)
+    ),
+
+    nav_panel(tr("menu2_module_demo"),
+      icon = icon("chart-bar"),
+      mod_demo1_ui("demo1", tr)
+    ),
+
+    # Exemple de nav_menu : un groupe avec deux sous-panneaux
+    nav_menu(tr("subItem_test"),
+      icon = icon("folder"),
+      nav_panel(tr("subitem1"), mod_demo_subitem1_ui("subitem1")),
+      nav_panel(tr("subitem2"), mod_demo_airplane_ui("turn_plane"))
     )
+
   )
 
-  return(my_dashboard)
+  # ── Panneaux de configuration ────────────────────────────────────────────────
+  # Conditionnels selon le rôle. Chaque niveau de rôle voit ses propres onglets
+  # en plus de celui du niveau inférieur.
+
+  # "your_account" : visible par tous les rôles
+  config_panels <- list(
+    nav_panel(tr("your_account"), mod_config_ui1("config"))
+  )
+
+  # "admin_access" : admin, super_admin, dev
+  if (role %in% c("admin", "super_admin", "dev")) {
+    config_panels <- c(config_panels, list(
+      nav_panel(tr("admin_access"), mod_config_ui2("config"))
+    ))
+  }
+
+  # "super_admin_access" : super_admin, dev
+  if (role %in% c("super_admin", "dev")) {
+    config_panels <- c(config_panels, list(
+      nav_panel(tr("super_admin_access"), mod_config_ui3("config"))
+    ))
+  }
+
+  # "dev_access" : dev uniquement
+  if (role == "dev") {
+    config_panels <- c(config_panels, list(
+      nav_panel(tr("dev_access"), mod_config_ui4("config"))
+    ))
+  }
+
+  # Regroupement des panneaux de config dans un nav_menu
+  # do.call permet de passer une liste de longueur variable à nav_menu()
+  panels <- c(panels, list(
+    do.call(nav_menu, c(
+      list(tr("configuration"), icon = icon("gear")),
+      config_panels
+    ))
+  ))
+
+  return(panels)
 }
