@@ -1,20 +1,109 @@
 print("protegR2_login_ui")
-protegR2_login_ui <- function(){
+
+# Ce fichier est copié dans R/ de ton projet à l'initialisation.
+# C'est ici que tu personnalises l'apparence de la page de connexion.
+#
+# Paramètres :
+#   config_global  — liste de configuration chargée depuis S3 (contient header_title, etc.)
+#   tr             — fonction de traduction (optionnelle, NULL si idioma = FALSE)
+#
+# Personnalisation :
+#   - Fond       : modifier le CSS de .login-background (image, couleur, dégradé)
+#   - Largeur    : modifier max-width dans .login-card-wrapper
+#   - Apparence  : modifier les classes Bootstrap de la card (voir bslib)
+#   - Champs     : ajouter / retirer des champs dans card_body()
+
+protegR2_login_ui <- function(config_global, tr = NULL) {
+
+  # Libellés traduits si tr() est disponible, sinon valeurs par défaut
+  lbl_title    <- config_global$header_title %||% "Application"
+  lbl_username <- if (!is.null(tr)) tr("username") else "Nom d'utilisateur"
+  lbl_password <- if (!is.null(tr)) tr("password") else "Mot de passe"
+  lbl_login    <- if (!is.null(tr)) tr("login")    else "Se connecter"
+
   tagList(
+
+    # ── Fond plein écran ────────────────────────────────────────────────────────
+    # Personnalise l'apparence dans le bloc CSS plus bas.
     tags$div(
-      style = "
-      min-height: 100vh;
-      width: 100%;
-      background-image: url('images/background.png');
-      background-size: cover;
-      background-position: center center;
-      padding: 20px;
-    ",
+      class = "login-background",
+
+      # ── Card de connexion centrée ─────────────────────────────────────────────
+      # max-width contrôlé par .login-card-wrapper dans le CSS
       div(
-        textInput("username", "username"),
-        passwordInput("password", "Password"),
-        actionButton("login", "Login")
+        class = "login-card-wrapper",
+
+        card(
+          # En-tête : titre de l'application
+          card_header(
+            class = "text-center fw-bold fs-5",
+            lbl_title
+          ),
+
+          card_body(
+            # Champs de connexion
+            textInput("username",
+                      label = lbl_username,
+                      placeholder = lbl_username),
+
+            passwordInput("password",
+                          label = lbl_password,
+                          placeholder = lbl_password),
+
+            # Bouton pleine largeur (classe Bootstrap w-100)
+            actionButton("login",
+                         label = tagList(icon("right-to-bracket"), lbl_login),
+                         class = "btn-primary w-100 mt-2")
+          )
+        )
       )
-    )
+    ),
+
+    # ── CSS de la page de login ─────────────────────────────────────────────────
+    # Modifie ce bloc pour personnaliser l'apparence.
+    # Les fichiers statiques (images) vont dans inst/app/www/ du projet.
+    # Shiny sert ce dossier à la racine : url('background.png')
+    tags$style(HTML("
+
+      /* Fond plein écran — remplace background-color par background-image si tu as une image */
+      .login-background {
+        min-height: 100vh;
+        width: 100%;
+        background-color: #2c3e50;
+        /* background-image: url('background.png'); */
+        /* background-size: cover; */
+        /* background-position: center center; */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Largeur et centrage de la card */
+      .login-card-wrapper {
+        width: 100%;
+        max-width: 420px;
+        padding: 20px;
+      }
+
+      /* Ombre portée sur la card */
+      .login-card-wrapper .card {
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        border: none;
+      }
+
+    ")),
+
+    # ── Touche Enter pour soumettre ─────────────────────────────────────────────
+    # Permet de valider le formulaire avec Enter depuis les champs username et password.
+    tags$script(HTML("
+      $(document).on('keydown', '#username, #password', function(e) {
+        if (e.key === 'Enter') {
+          $(this).blur();      // force la mise à jour de la valeur côté Shiny
+          $('#login').click(); // déclenche le bouton
+          e.preventDefault();  // empêche le comportement par défaut du navigateur
+        }
+      });
+    "))
+
   )
 }
