@@ -41,10 +41,17 @@ cookie_set_user <- function(input, session) {
   message("Fichier de session sauvegardé sur S3 : token / expiration / fingerprint / username")
 
   # Le cookie côté navigateur contient uniquement le token (UUID aléatoire).
-  # La valeur en jours est : minutes / (24h * 60min)
+  # Le paramètre expiration attend une date au format "yyyy-mm-dd" (version actuelle
+  # du package {cookies}). On convertit session_timeout_mins en jours (arrondi au
+  # plafond pour ne pas sous-estimer) puis on formate la date cible.
+  # ceiling() évite 0 jour si le timeout est inférieur à 24h (ex. 60 min → 1 jour).
+  expiration_date <- format(
+    Sys.Date() + ceiling(session_timeout_mins / 60 / 24),
+    "%Y-%m-%d"
+  )
   set_cookie(cookie_name  = cookie_name,
              cookie_value = token_value,
-             expiration   = session_timeout_mins / 24 / 60)
+             expiration   = expiration_date)
 
   message("Cookie navigateur enregistré")
   message("############################## user_cookie_set: fin #####################################")

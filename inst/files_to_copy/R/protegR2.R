@@ -37,23 +37,23 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
   # Si config_global$ga_id est défini (ex. "G-XXXXXXXXXX"), on injecte
   # automatiquement le script GA4 dans le <head>. Sinon, ga_script vaut NULL
   # et Shiny ignore simplement un élément NULL dans la UI.
-  ga_script <- if (!is.null(config_global$ga_id)) {
-    tagList(
-      # Chargement asynchrone du script GA — "async = NA" produit <script async>
-      tags$script(
-        async = NA,
-        src   = paste0("https://www.googletagmanager.com/gtag/js?id=", config_global$ga_id)
-      ),
-      tags$script(HTML(paste0(
-        "window.dataLayer = window.dataLayer || [];
-         function gtag(){dataLayer.push(arguments);}
-         gtag('js', new Date());
-         gtag('config', '", config_global$ga_id, "');"
-      )))
-    )
-  } else {
-    NULL
-  }
+#  ga_script <- if (!is.null(config_global$ga_id)) {
+#    tagList(
+#      # Chargement asynchrone du script GA — "async = NA" produit <script async>
+#      tags$script(
+#        async = NA,
+#        src   = paste0("https://www.googletagmanager.com/gtag/js?id=", config_global$ga_id)
+#      ),
+#      tags$script(HTML(paste0(
+#        "window.dataLayer = window.dataLayer || [];
+#         function gtag(){dataLayer.push(arguments);}
+#         gtag('js', new Date());
+#         gtag('config', '", config_global$ga_id, "');"
+#      )))
+#    )
+#  } else {
+#    NULL
+#  }
 
   # ── Structure de la page ─────────────────────────────────────────────────────
   # add_cookie_handlers() est fourni par le package {cookies}. Il enveloppe
@@ -78,7 +78,7 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
       tags$head(
 
         # Injection des scripts Google Analytics si configurés
-        ga_script,
+#        ga_script,
 
         # ── Handler de déconnexion forcée ────────────────────────────────────
         # Ce handler JavaScript est déclenché depuis le serveur avec :
@@ -179,6 +179,8 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   #
   # On l'utilise comme "état global de session" — alternative propre aux
   # variables globales qui seraient partagées entre toutes les sessions.
+  config_s3_location <- readRDS(config_s3_location_path)
+  config_global <- s3readRDS_HL(object = "config_files/config_global.rds")
   session$userData$config_s3_location     <- config_s3_location
   session$userData$config_global          <- config_global
   session$userData$style                  <- style
@@ -665,39 +667,64 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
 
 
   # ══════════════════════════════════════════════════════════════════════════
-  # ── Vérification du cookie toutes les 45 secondes ─────────────────────────
+  # ── Vérification du token S3 toutes les 45 secondes ───────────────────────
   # ══════════════════════════════════════════════════════════════════════════
   #
-  # Rôle : détecter la disparition du cookie navigateur (fermeture d'onglet,
-  # expiration, effacement manuel) et déconnecter proprement l'utilisateur.
+  # Rôle : détecter en moins d'une minute qu'une autre session a invalidé ce
+  # token (connexion simultanée sur un autre appareil — mécanisme Option B).
   #
-  # invalidateLater(45000) est la clé de ce mécanisme :
-  #   Shiny traite les blocs observe() comme paresseux (lazy) — ils ne
-  #   s'exécutent que quand une dépendance change. Sans invalidateLater(),
-  #   ce bloc ne s'exécuterait jamais "tout seul" car le cookie navigateur
-  #   n'est pas une dépendance réactive Shiny.
-  #   invalidateLater(45000) force Shiny à ré-exécuter ce bloc dans 45 000 ms
-  #   (45 secondes), en le marquant comme "invalidé" même sans changement de
-  #   dépendance. C'est le seul moyen de faire du "polling" en Shiny.
+  # ── Pourquoi S3 et non get_cookie() ? ─────────────────────────────────────
   #
-  # Fenêtre d'exposition :
-  #   Entre 0 et 45 secondes après la disparition du cookie, la session est
-  #   techniquement encore "active" côté Shiny. C'est acceptable — le fichier
-  #   S3 a déjà expiré donc même si quelqu'un interceptait la session, le
-  #   cookie qu'il aurait serait invalide pour l'auto-login.
+  # get_cookie() lit input$cookies, qui est une SNAPSHOT du navigateur au
+  # moment du chargement initial de la page. Quand set_cookie() est appelé
+  # pendant la session (au login, au refresh), input$cookies ne se met PAS
+  # à jour — il reste figé sur la valeur présente au chargement de la page.
+  #
+  # Conséquence concrète :
+  #   1. Utilisateur arrive → page se charge → input$cookies = {} (vide)
+  #   2. Utilisateur se connecte → set_cookie() pose le cookie dans le navigateur
+  #   3. user_auth() devient non-NULL → cet observe se déclenche immédiatement
+  #   4. get_cookie() lirait input$cookies → toujours {} → retournerait NULL
+  #   5. Résultat : fausse déconnexion automatique juste après le login !
+  #
+  # En vérifiant S3 à la place, on est toujours cohérent :
+  #   - Token présent sur S3 → session valide (même juste après login)
+  #   - Token absent sur S3  → soit expiré, soit remplacé par un autre login
+  #
+  # ── Comment invalidateLater fonctionne ici ─────────────────────────────────
+  #
+  # Ce bloc s'exécute une première fois immédiatement quand user_auth() passe
+  # de NULL à une valeur (déclencheur réactif). À ce moment, le token vient
+  # d'être écrit sur S3 → s3exist_HL() retourne TRUE → rien ne se passe.
+  # Ensuite, invalidateLater(45000) programme une ré-exécution dans 45s,
+  # puis 45s après celle-là, etc. — boucle infinie jusqu'à la fermeture de
+  # la session ou la déconnexion (req() stopperait le cycle si user_auth redevient NULL).
   observe({
     req(session$userData$user_info$user_auth())
     invalidateLater(45000)
 
-    print("vérification cookie d'activité")
+    print("vérification token S3 toutes les 45s")
 
-    # get_cookie() lit le cookie depuis le navigateur (via {cookies}).
-    # Si NULL : cookie absent → déconnexion propre via perform_logout().
-    # perform_logout() supprime aussi le fichier S3 et le cookie côté serveur.
-    if (is.null(get_cookie(config_global$cookie_name))) {
-      print("cookie absent — déconnexion automatique")
+    # req() sur token_value : sécurité pour ne pas appeler S3 avec un chemin
+    # invalide si token_value n'est pas encore initialisé (cas théorique).
+    token_value <- session$userData$user_info$token_value
+    req(token_value)
+
+    file_path <- paste0("session/", token_value, ".rds")
+
+    if (!s3exist_HL(object = file_path)) {
+      # Le token n'existe plus sur S3 :
+      #   - Autre login avec ce username → cookie_validator_delete() a supprimé ce token
+      #   - Token expiré et nettoyé manuellement
+      # Dans les deux cas, on invalide la session côté Shiny.
+      # On n'appelle PAS perform_logout() ici (qui supprimerait d'autres tokens
+      # et enverrait des messages) — on se contente de couper la session locale.
+      #
+      # ⚑ Phase 2.4 : ajouter ici session$sendCustomMessage("forceDisconnect", ...)
+      #   avec le message "Votre session a été ouverte sur un autre appareil."
+      print("token S3 introuvable — session invalidée (expiration ou connexion simultanée)")
       just_logged_out(TRUE)
-      perform_logout(session = session)
+      session$userData$user_info$user_auth(NULL)
     }
   })
 
