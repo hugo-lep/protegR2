@@ -8,6 +8,7 @@
 .quarto
 inst/temp_R_files/
 inst/package_dev/
+inst/app/data/
 inst/doc
 **/.quarto/
 

@@ -2,7 +2,7 @@
 % Please edit documentation in R/protegR_mod_demo.R
 \name{mod_demo2_ui}
 \alias{mod_demo2_ui}
-\title{module demo de protegR, servant à présenter la structure + détail du role}
+\title{module demo de protegR2, servant à présenter la structure + détail du role}
 \usage{
 mod_demo2_ui(id, session)
 }

@@ -57,9 +57,9 @@
 # À refaire chaque fois qu'on modifie un fichier dans R/ :
 #   Ctrl+Shift+L dans RStudio (shortcut pour load_all)
 # OU simplement relancer cette app.
-devtools::load_all("..")
-
-
+#devtools::load_all("..")
+devtools::load_all()
+#document()
 # ── Étape 2 : Charger les bibliothèques nécessaires ───────────────────────────
 #
 # Deux catégories :
@@ -128,10 +128,10 @@ if (!file.exists(config_s3_location_path)) {
   )
 }
 config_s3_location <- readRDS(config_s3_location_path)
-
+#readRDS(paste0("dev/",config_s3_location_path))
 # Connexion à S3 — utilise les credentials dans .Renviron
 # Si la connexion échoue, vérifier AWS_ACCESS_KEY_ID etc. dans .Renviron
-s3_connection_HL()
+s3_connection_HL(config_path = "data/")
 
 # Chargement de la configuration globale depuis S3
 # Ce fichier est créé par protegR2_init_config_global() lors de l'initialisation du projet
