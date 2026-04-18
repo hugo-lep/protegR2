@@ -1,17 +1,8 @@
-#' get code from ip and user agent
-#'
-#' @param input input principal de la session shiny pour aller cherche information enregistré par nginx
-#'
-#' @return Un vecteur de type caractère représentant le fingerprint
+# Helper interne — construit le fingerprint (hash IP + hash User-Agent)
+# Appelé par cookie_set_user() et cookie_auto_login(). Non exporté.
 #' @importFrom digest digest
 #' @importFrom rlang `%||%`
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' get_fingerprint(input)
-#' }
-
+#' @noRd
 get_fingerprint <- function(input) {
   # client_data = input$client_ip_data envoyé par JS
   req(input$client_ip_data)
@@ -31,20 +22,9 @@ get_fingerprint <- function(input) {
   )
 }
 
-#' Fonction pour récupérer l'IP et le user agent
-#' get user info
-#'
-#' @param session variable session de shiny
-#' @param ns Namespace, utile quand utilisé dans un module
-#' @param input_name client_ip_data par défaut
-#'
-#' @returns Rien mais ajoute un input
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' fetch_client_ip(session)
-#' }
+# Helper interne — envoie un appel JS pour récupérer IP et User-Agent via nginx.
+# Appelé par protegR2_server(). Non exporté.
+#' @noRd
 fetch_client_ip <- function(session, ns = NULL, input_name = "client_ip_data") {
 
   # Construction sécurisée de l'URL

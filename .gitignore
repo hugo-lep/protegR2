@@ -8,10 +8,6 @@
 .quarto
 inst/temp_R_files/
 inst/package_dev/
-inst/app/data/
-inst/doc
+inst/brouillon/
+inst/pkg_shiny_test/
 **/.quarto/
-
-# Fichiers de développement local — credentials S3, jamais sur GitHub
-dev/data/config_s3_location.rds
-dev/data/config_s3_access.rds

@@ -20,6 +20,24 @@ print("protegR2_ui")
 #                     "fillable" → plein écran (navset_card_underline)
 #   idioma        — TRUE pour afficher le sélecteur de langue, FALSE pour le cacher
 
+#' Interface utilisateur principale de protegR2
+#'
+#' Construit la coquille statique de l'application Shiny. Tout ce qui
+#' depend de l'etat de connexion est rendu dynamiquement via
+#' \code{uiOutput("main_ui")}.
+#'
+#' @param config_global Liste de configuration chargee depuis S3
+#' @param style Layout : \code{"sidebar"}, \code{"navbar"}, \code{"fluid"}
+#'   ou \code{"fillable"}
+#' @param idioma \code{TRUE} pour afficher le selecteur de langue
+#'
+#' @importFrom bslib bs_theme page_fluid
+#' @importFrom shiny uiOutput tags div selectInput HTML
+#' @importFrom shinyjs useShinyjs
+#' @importFrom cookies add_cookie_handlers
+#' @importFrom rlang %||%
+#'
+#' @export
 protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
 
   # ── Thème bslib (Bootstrap 5) ───────────────────────────────────────────────
@@ -124,7 +142,10 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
 
 
 print("protegR2_server")
-
+utils::globalVariables(c(
+  "config_s3_location_path","i18n_db","protegR2_load_modules_servers","protegR2_load_modules_UIs",
+  "protegR2_login_ui"
+))
 # ══════════════════════════════════════════════════════════════════════════════
 # protegR2_server()
 # ══════════════════════════════════════════════════════════════════════════════
@@ -141,6 +162,28 @@ print("protegR2_server")
 #           "fillable". Doit être le même dans ui.R et server.R (défini une seule
 #           fois dans global.R, puis transmis aux deux fonctions).
 
+#' Serveur principal de protegR2
+#'
+#' Orchestre toute la logique serveur : initialisation de session,
+#' login manuel, auto-login par cookie, logout, protection brute force,
+#' refresh de session et dispatch du layout.
+#'
+#' @param input,output,session Parametres standards d'une fonction serveur Shiny
+#' @param style Layout : \code{"sidebar"}, \code{"navbar"}, \code{"fluid"}
+#'   ou \code{"fillable"}
+#'
+#' @importFrom bslib navset_pill_list navset_underline navset_tab navset_card_underline
+#' @importFrom shiny observe observeEvent reactive renderUI req reactiveVal
+#'   invalidateLater reactiveValuesToList throttle actionButton icon tagList
+#' @importFrom shinyWidgets sendSweetAlert
+#' @importFrom dplyr filter pull
+#' @importFrom magrittr %>%
+#' @importFrom uuid UUIDgenerate
+#' @importFrom sodium password_verify
+#' @importFrom s3db s3readRDS_HL s3exist_HL
+#' @importFrom utilsHL make_tr
+#'
+#' @export
 protegR2_server <- function(input, output, session, style = "sidebar") {
 
   # ── Fonction helper locale : incrément du compteur de brute force ──────────
@@ -753,3 +796,28 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   })
 
 }
+
+# ── Fonctions définies dans le projet utilisateur, pas dans le package ────────
+#
+# Ces trois fonctions sont intentionnellement absentes du package protegR2.
+# Elles sont copiées dans le dossier R/ du projet utilisateur lors de
+# l'initialisation (protegR2_copy_files()), car elles sont conçues pour
+# être personnalisées par projet :
+#
+#   protegR2_login_ui()            → apparence de la page de login (logo, fond, couleurs)
+#   protegR2_load_modules_UIs()    → liste des nav_panel() selon le rôle utilisateur
+#   protegR2_load_modules_servers()→ démarrage des modules Shiny du projet
+#
+# R CMD check signalerait "no visible global function definition" pour ces noms,
+# car il n'a pas accès au code du projet utilisateur. utils::globalVariables()
+# supprime cet avertissement en déclarant explicitement que ces noms sont connus
+# et définis dans un environnement externe au package.
+#
+# C'est le mécanisme standard prévu par R pour exactement ce cas de figure.
+# Voir aussi : utils::globalVariables() dans perform_login_logout.R pour
+# le même patron appliqué à d'autres variables externes.
+utils::globalVariables(c(
+  "protegR2_login_ui",
+  "protegR2_load_modules_UIs",
+  "protegR2_load_modules_servers"
+))

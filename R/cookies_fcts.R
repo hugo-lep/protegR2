@@ -75,24 +75,15 @@ cookie_remove_user <- function(session) {
 }
 
 
-#' update cookie et cookie validator lors d'un input
-#'
-#' @param just_logged_out reactiveVal servant à éviter le cookie auto-connect
-#' @param input Variable input de la session shiny
-#' @param session Variable de la session shiny
-#'
+# Ancienne fonction de refresh de cookie par activité — remplacée par le bloc
+# throttled_inputs dans protegR2_server() (Phase 2.3). Conservée ici pour
+# référence mais n'est plus appelée. Non exportée.
+#
 #' @importFrom shiny observeEvent reactiveValuesToList req
 #' @importFrom lubridate now
 #' @importFrom s3db s3exist_HL
-#'
-#' @returns Ne retourne rien, mais met à jour le cookie et cookie validator
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' cookie_actvity_timestamp(input, session)
-#' }
-cookie_actvity_timestamp <- function(just_logged_out, input, session) {
+#' @noRd
+cookie_activity_timestamp <- function(just_logged_out, input, session) {
 
   observeEvent(reactiveValuesToList(input), {
     req(session$userData$user_info$token_value)

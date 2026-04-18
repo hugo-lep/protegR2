@@ -5,3 +5,9 @@
 ^LICENSE\.md$
 ^dev$
 ^plan\.md$
+^CLAUDE\.md$
+^\.lintr$
+^\.claude$
+^inst/pkg_shiny_test$
+^inst/brouillon$
+^inst/package_dev$

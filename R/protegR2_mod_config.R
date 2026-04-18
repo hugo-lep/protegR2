@@ -256,6 +256,7 @@ utils::globalVariables(c(
 #' @importFrom hms as_hms
 #' @importFrom lubridate NA_Date_
 #' @importFrom digest digest
+#' @importFrom purrr compact
 #'
 #' @returns Retourne les calculs nécessaire aux différents UI de configuration
 #' @export
