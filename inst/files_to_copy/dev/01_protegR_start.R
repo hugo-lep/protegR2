@@ -25,7 +25,7 @@ protegR2_copy_files(background = TRUE, app = TRUE, R_files = TRUE)
 protegR2_copy_files(app = TRUE, R_files = TRUE)
 
 # Packages CRAN
-renv::install(c("here","shiny","shinydashboard","tidyr","purrr","readr",
+renv::install(c("here","shiny","tidyr","purrr","readr",
                    "dplyr","shinyWidgets","uuid","stringr","sodium","cookies","shinyjs","glue"))
 # Packages perso (utilsHL ici comme exemple, remplacer chemin par ton dossier local ou GitHub)
 renv::install(c("hugo-lep/protegR2@dev","hugo-lep/utilsHL"))
@@ -116,7 +116,7 @@ protegR2_init_config_global(name = "header_title", value =  "protegR2 demo")
 
 # Installation des packages CRAN:
 renv::install(c(
-  "here","shiny","shinydashboard","tidyr","purrr","readr","dplyr","shinyWidgets",
+  "here","shiny","tidyr","purrr","readr","dplyr","shinyWidgets",
   "uuid","stringr","sodium","cookies","shinyjs","glue"))
 renv::install(c("hugo-lep/protegR2@dev","hugo-lep/utilsHL"))
 renv::snapshot()

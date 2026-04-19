@@ -47,7 +47,7 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
   # Les valeurs viennent de config_global si elles sont définies,
   # sinon on utilise les valeurs par défaut avec %||% (opérateur "ou si NULL").
   theme <- bs_theme(
-    bootswatch = config_global$bootswatch %||% "flatly",
+    bootswatch = config_global$bootswatch %||% "darkly",
     primary    = config_global$primary_color %||% "#3c8dbc"
   )
 
@@ -55,23 +55,23 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
   # Si config_global$ga_id est défini (ex. "G-XXXXXXXXXX"), on injecte
   # automatiquement le script GA4 dans le <head>. Sinon, ga_script vaut NULL
   # et Shiny ignore simplement un élément NULL dans la UI.
-#  ga_script <- if (!is.null(config_global$ga_id)) {
-#    tagList(
-#      # Chargement asynchrone du script GA — "async = NA" produit <script async>
-#      tags$script(
-#        async = NA,
-#        src   = paste0("https://www.googletagmanager.com/gtag/js?id=", config_global$ga_id)
-#      ),
-#      tags$script(HTML(paste0(
-#        "window.dataLayer = window.dataLayer || [];
-#         function gtag(){dataLayer.push(arguments);}
-#         gtag('js', new Date());
-#         gtag('config', '", config_global$ga_id, "');"
-#      )))
-#    )
-#  } else {
-#    NULL
-#  }
+  ga_script <- if (!is.null(config_global$ga_id)) {
+    tagList(
+      # Chargement asynchrone du script GA — "async = NA" produit <script async>
+      tags$script(
+        async = NA,
+        src   = paste0("https://www.googletagmanager.com/gtag/js?id=", config_global$ga_id)
+      ),
+      tags$script(HTML(paste0(
+        "window.dataLayer = window.dataLayer || [];
+         function gtag(){dataLayer.push(arguments);}
+         gtag('js', new Date());
+         gtag('config', '", config_global$ga_id, "');"
+      )))
+    )
+  } else {
+    NULL
+  }
 
   # ── Structure de la page ─────────────────────────────────────────────────────
   # add_cookie_handlers() est fourni par le package {cookies}. Il enveloppe
@@ -87,16 +87,11 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
   add_cookie_handlers(
     page_fluid(
       theme = theme,
-
-      # useShinyjs() active les fonctions JavaScript de {shinyjs}
-      # (toggle, hide, show, etc.) utilisées dans l'application.
-      # Doit être appelé une fois dans la UI, de préférence au début du body.
-      useShinyjs(),
+      useShinyjs(),   #active fonction javascript (toogle,hide,show), doit être appeler 1x dans ui
 
       tags$head(
 
-        # Injection des scripts Google Analytics si configurés
-#        ga_script,
+        ga_script, # Injection des scripts Google Analytics si configurés, ignoré si NULL
 
         # ── Handler de déconnexion forcée ────────────────────────────────────
         # Ce handler JavaScript est déclenché depuis le serveur avec :
@@ -106,8 +101,27 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
         # Utilisé quand une session simultanée est détectée (autre appareil).
         tags$script(HTML("
           Shiny.addCustomMessageHandler('forceDisconnect', function(msg) {
-            alert(msg.message);
-            location.reload();
+            // SweetAlert2 est charge automatiquement par shinyWidgets.
+            // On l'utilise ici pour un popup coherent avec le reste de l'app.
+            // Fallback vers alert() natif si Swal n'est pas disponible
+            // (environnement de test sans shinyWidgets, etc.).
+            // allowOutsideClick: false oblige l'utilisateur a cliquer OK
+            // avant que la page se recharge -- evite de rester bloque
+            // sur une session zombie.
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                title: 'Session terminee',
+                text: msg.message,
+                icon: 'warning',
+                allowOutsideClick: false,
+                confirmButtonText: 'OK'
+              }).then(function() {
+                location.reload();
+              });
+            } else {
+              alert(msg.message);
+              location.reload();
+            }
           });
         "))
 
@@ -175,6 +189,7 @@ utils::globalVariables(c(
 #' @importFrom bslib navset_pill_list navset_underline navset_tab navset_card_underline
 #' @importFrom shiny observe observeEvent reactive renderUI req reactiveVal
 #'   invalidateLater reactiveValuesToList throttle actionButton icon tagList
+#'   isolate updateQueryString getQueryString
 #' @importFrom shinyWidgets sendSweetAlert
 #' @importFrom dplyr filter pull
 #' @importFrom magrittr %>%
@@ -187,17 +202,6 @@ utils::globalVariables(c(
 protegR2_server <- function(input, output, session, style = "sidebar") {
 
   # ── Fonction helper locale : incrément du compteur de brute force ──────────
-  #
-  # Cette fonction est définie ici (à l'intérieur de protegR2_server) plutôt
-  # que dans un fichier séparé parce qu'elle est uniquement utile dans ce
-  # contexte. En R, c'est parfaitement valide : une fonction peut contenir
-  # d'autres fonctions, qui sont alors locales et invisibles de l'extérieur.
-  #
-  # Elle prend l'état actuel du compteur (une liste) et retourne un nouvel état.
-  # Elle ne modifie PAS le reactiveVal directement — c'est le code appelant
-  # qui fait login_failures(increment_failures(failures)). Ce choix de design
-  # "fonction pure" (entrée → sortie, pas d'effet de bord) rend la logique
-  # plus facile à tester et à comprendre.
   #
   # Règle de verrouillage :
   #   Tentatives 1–4 : compteur incrémenté, pas de verrou
@@ -222,33 +226,17 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   #
   # On l'utilise comme "état global de session" — alternative propre aux
   # variables globales qui seraient partagées entre toutes les sessions.
-  config_s3_location <- readRDS(config_s3_location_path)
-  config_global <- s3readRDS_HL(object = "config_files/config_global.rds")
+
   session$userData$config_s3_location     <- config_s3_location
   session$userData$config_global          <- config_global
   session$userData$style                  <- style
   session$userData$timestamp_cookie_check <- reactiveVal(Sys.time())
   session$userData$timestamp_cookie_reset <- reactiveVal(Sys.time())
 
-  # reactiveVal(valeur_initiale) crée un "conteneur réactif" :
-  #   - Pour lire  : session$userData$idioma()       ← noter les parenthèses
-  #   - Pour écrire : session$userData$idioma("en")  ← appel comme une fonction
-  # Quand on écrit dans un reactiveVal, tous les blocs qui le lisent sont
-  # automatiquement ré-exécutés. C'est le mécanisme central de la réactivité Shiny.
   session$userData$idioma <- reactiveVal(config_global$idioma %||% "fr")
 
   # user_info est la liste centrale d'état de l'utilisateur connecté.
-  # Chaque champ est un reactiveVal sauf token_value.
-  #
-  # Pourquoi token_value n'est PAS un reactiveVal ?
-  # Parce qu'on ne veut pas que le changement du token force un re-rendu de l'UI.
-  # Le token est une valeur interne de gestion de session — aucun élément visuel
-  # ne doit "réagir" à son changement. C'est une simple valeur R, pas réactive.
-  #
-  # Les autres sont des reactiveVal parce que :
-  #   - valid_user()  : des modules l'affichent (nom, email, rôle)
-  #   - user_auth()   : contrôle la bascule login↔app dans output$main_ui
-  #   - user_role()   : détermine quels onglets sont visibles dans my_panels()
+
   session$userData$user_info <- list(
     valid_user  = reactiveVal(NULL),  # liste complète des données de l'utilisateur
     token_value = NULL,               # UUID de session (non réactif intentionnellement)
@@ -301,13 +289,6 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
 
   # ── Changement de langue ──────────────────────────────────────────────────
   #
-  # observeEvent(input$X, {...}) vs observe({req(input$X); ...}) :
-  #   - observeEvent est plus lisible quand on réagit à un événement précis
-  #   - Il n'exécute PAS le bloc au démarrage (ignoreInit = TRUE par défaut)
-  #   - Il n'exécute pas si input$select_idioma est NULL (ignoreNULL = TRUE)
-  #   - observe() s'exécute aussi au démarrage — utile pour les dépendances
-  #     qui doivent être chargées dès le début (ex. IP, auto-login)
-  #
   # Ici on veut exactement observeEvent : réagir seulement quand l'utilisateur
   # change la langue, pas forcer une "non-traduction" au démarrage.
   observeEvent(input$select_idioma, {
@@ -336,16 +317,6 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   # ══════════════════════════════════════════════════════════════════════════
   # ── Connexion (login) ─────────────────────────────────────────────────────
   # ══════════════════════════════════════════════════════════════════════════
-  #
-  # observeEvent(input$login, {...}) :
-  #   - Se déclenche UNIQUEMENT sur un clic du bouton "login" ou Enter (via JS)
-  #   - NE s'exécute PAS au démarrage (ignoreInit = TRUE par défaut)
-  #   - NE s'exécute PAS si input$login est NULL (avant premier clic)
-  #
-  # Pattern "early return" :
-  # Chaque vérification échoue avec return(NULL) dès qu'une condition n'est
-  # pas remplie. C'est plus lisible et maintenable qu'un grand if/else imbriqué.
-  # L'exécution ne continue que si TOUTES les vérifications passent.
   #
   # Ordre des vérifications — intentionnel :
   #   1. Verrou brute force       → sans appel S3 (économie de ressources)
@@ -598,6 +569,29 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
     } else {
 
       # ── Application connectée ──────────────────────────────────────────────
+
+      # ── Restauration de la page active ──────────────────────────────────────
+      # Calculé ICI, avant le tagList(), car une assignation R ne peut pas
+      # figurer à l'intérieur d'un tagList() (qui n'accepte que des éléments UI).
+      #
+      # isolate() lit l'URL sans créer de dépendance réactive.
+      # Sans isolate(), chaque updateQueryString() (déclenché à chaque
+      # changement d'onglet) invaliderait renderUI → boucle infinie.
+      #
+      # Ce bloc s'exécute à chaque re-rendu de main_ui, notamment :
+      #   - Au login (manuel ou auto) : restaure la page sauvegardée dans l'URL
+      #   - Au changement de langue   : my_panels() se recalcule → re-rendu →
+      #     l'URL contient toujours la page active → onglet préservé
+      #
+      # Si l'URL ne contient pas de ?page= (première connexion, ou valeur inconnue),
+      # saved_page vaut NULL et bslib sélectionne le premier panel par défaut.
+      #
+      # Convention : pour que la restauration survive au changement de langue,
+      # les nav_panel() dans protegR2_load_modules_UIs.R doivent utiliser un
+      # argument value= stable (indépendant de la langue) :
+      #   nav_panel(title = tr("rapports"), value = "rapports", ...)
+      saved_page <- isolate(getQueryString(session))$page
+
       tagList(
 
         # Bouton de déconnexion en position fixe — visible sur toutes les pages.
@@ -618,39 +612,65 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
         # présentation visuelle change (sidebar vs onglets horizontaux vs etc.)
         #
         # L'id "nav_tab" permet de lire l'onglet actif via input$nav_tab et
-        # de le changer programmatiquement via nav_select("nav_tab", "Titre").
-        # Utile pour la restauration de page au refresh (Phase 2.5).
+        # de le changer programmatiquement via nav_select("nav_tab", "valeur").
         switch(style,
 
           "sidebar" = do.call(
             navset_pill_list,
-            c(list(id = "nav_tab", well = FALSE), my_panels())
+            c(list(id = "nav_tab", well = FALSE, selected = saved_page), my_panels())
             # well = FALSE : supprime l'arrière-plan gris qui encadre la liste
             # par défaut dans navset_pill_list — rendu plus propre
           ),
 
           "navbar" = do.call(
             navset_underline,
-            c(list(id = "nav_tab"), my_panels())
+            c(list(id = "nav_tab", selected = saved_page), my_panels())
             # navset_underline : onglets horizontaux avec soulignement actif
             # (plus moderne que navset_tab qui utilise des onglets avec bordure)
           ),
 
           "fluid" = do.call(
             navset_tab,
-            c(list(id = "nav_tab"), my_panels())
+            c(list(id = "nav_tab", selected = saved_page), my_panels())
             # navset_tab : onglets classiques Bootstrap dans une page fluid
           ),
 
           "fillable" = do.call(
             navset_card_underline,
-            c(list(id = "nav_tab"), my_panels())
+            c(list(id = "nav_tab", selected = saved_page), my_panels())
             # navset_card_underline : onglets avec card plein écran — idéal
             # pour les dashboards avec graphiques qui occupent tout l'espace
           )
         )
       )
     }
+  })
+
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # ── Sauvegarde de la page active dans l'URL ───────────────────────────────
+  # ══════════════════════════════════════════════════════════════════════════
+  #
+  # Objectif : écrire le panel actif dans l'URL à chaque navigation, pour
+  # pouvoir le restaurer au refresh ou après un auto-login par cookie.
+  #
+  # updateQueryString("?page=valeur", mode = "push") :
+  #   - "push"    → ajoute une entrée dans l'historique du navigateur
+  #                 (le bouton "précédent" fonctionne)
+  #   - "replace" → remplace l'entrée courante sans créer d'historique
+  #   On choisit "push" pour ne pas casser la navigation navigateur.
+  #
+  # req(user_auth()) : on n'écrit dans l'URL que si l'utilisateur est
+  # connecté. Sur la page de login, input$nav_tab n'existe pas (le navset
+  # n'est pas rendu), donc ce bloc ne se déclenche pas de toute façon —
+  # mais req() le rend explicite et sûr.
+  observeEvent(input$nav_tab, {
+    req(session$userData$user_info$user_auth())
+    updateQueryString(
+      paste0("?page=", input$nav_tab),
+      mode    = "push",
+      session = session
+    )
   })
 
 
@@ -763,10 +783,20 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
       # On n'appelle PAS perform_logout() ici (qui supprimerait d'autres tokens
       # et enverrait des messages) — on se contente de couper la session locale.
       #
-      # ⚑ Phase 2.4 : ajouter ici session$sendCustomMessage("forceDisconnect", ...)
-      #   avec le message "Votre session a été ouverte sur un autre appareil."
-      print("token S3 introuvable — session invalidée (expiration ou connexion simultanée)")
+      # Ordre intentionnel des trois lignes ci-dessous :
+      #   1. just_logged_out(TRUE)      → empêche l'observe d'auto-login de se déclencher
+      #                                   pendant que le popup est affiché
+      #   2. sendCustomMessage(...)     → envoie le popup au navigateur (non-bloquant
+      #                                   côté serveur, asynchrone côté client)
+      #   3. user_auth(NULL)            → invalide la session serveur immédiatement ;
+      #                                   renderUI bascule vers la page de login, mais
+      #                                   le handler JS forceDisconnect est dans tags$head
+      #                                   (toujours présent) et s'exécutera quand même
+      print("token S3 introuvable — session invalidee (expiration ou connexion simultanee)")
       just_logged_out(TRUE)
+      session$sendCustomMessage("forceDisconnect", list(
+        message = "Votre session a ete ouverte sur un autre appareil. Vous avez ete deconnecte."
+      ))
       session$userData$user_info$user_auth(NULL)
     }
   })

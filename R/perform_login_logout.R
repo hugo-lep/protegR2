@@ -118,7 +118,14 @@ perform_logout <- function(session) {
   for (tok in shiny_session_to_remove) {
     s <- sessions[[tok]]$session
     if (!is.null(s)) {
-      s$sendCustomMessage("forceReload", list())
+      # Utilise forceDisconnect (défini dans protegR2_ui()) plutôt que forceReload
+      # (qui n'existe plus depuis la migration bslib).
+      # Le même handler servira aussi pour la déconnexion forcée par session
+      # simultanée (Phase 2.4 — observe 45s). En Phase 2.4, alert() sera
+      # remplacé par sweetAlert, ce qui améliorera les deux cas d'un coup.
+      s$sendCustomMessage("forceDisconnect", list(
+        message = "Votre session a \u00e9t\u00e9 ferm\u00e9e suite \u00e0 une d\u00e9connexion sur un autre appareil ou navigateur."
+      ))
     }
     rm(list = tok, envir = sessions)
   }
