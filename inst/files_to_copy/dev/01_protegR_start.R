@@ -28,16 +28,14 @@ protegR2_copy_files(app = TRUE, R_files = TRUE)
 renv::install(c("here","shiny","tidyr","purrr","readr",
                    "dplyr","shinyWidgets","uuid","stringr","sodium","cookies","shinyjs","glue"))
 # Packages perso (utilsHL ici comme exemple, remplacer chemin par ton dossier local ou GitHub)
-renv::install(c("hugo-lep/protegR2@dev","hugo-lep/utilsHL"))
+#renv::install(c("hugo-lep/protegR2@dev","hugo-lep/utilsHL"))
 
 
 
 # Enregistrement du fichier + fichier confit_s3_location.rds sera ajouté à .gitignore
 # En deux étapes pour ne pas copier cette information sur github
 # Un fichier est enregistré en local dans le projet, et ajouté à .gitignore
-protegR2_init_s3path(s3_bucket = "my_bucket",
-                    s3_main_folder = "the_main_folder",
-                    secure_key = "12345")
+# Fonction s3db pour configurer car, c'est ensuite ce package qui interragit avec s3
 
 # nouvelle fonction s3db
 set_config_s3_location(
@@ -49,19 +47,10 @@ set_config_s3_location(
 
 # ---- AWS ----------------------------------------------------------------
 # ------ 2e étape: enregistrer les informations pour accéder à bucket et dossier principal sur S3
-# (option 1): Enregistrer les informations pour se connecter à S3/AWS
-protegR2_init_s3access(
-  AWS_ACCESS_KEY_ID = "123",
-  AWS_SECRET_ACCESS_KEY = "456",
-  AWS_DEFAULT_REGION = "no_where",              # écrire "" avec OVH
-  AWS_S3_ENDPOINT = "s3.amazonaws.com"          # OVH = "s3.bhs.io.cloud.ovh.net"
-)
 
-# ---- OVH ----------------------------------------------------------------
-# nouvelle fonction s3db
 set_config_s3_access(
-  s3_ACCESS_KEY_ID = "07bef95720904603a3ea17556677d6cd",
-  s3_SECRET_ACCESS_KEY = "20404c807eb149bf95e5aca0ad328fbd",
+  s3_ACCESS_KEY_ID = "abc",
+  s3_SECRET_ACCESS_KEY = "abc",
   s3_REGION = "",
   s3_ENDPOINT = "s3.bhs.io.cloud.ovh.net",
   config_path = TRUE#,
@@ -70,25 +59,11 @@ set_config_s3_access(
 
 
 # ensuite avec le code suivant, on peut accéder à S3 dans toute notre application
-AWS_connection()
 s3_connection_HL()
-
-# (option 2): en 2 étapes, fonctionne seulement si le code fonctionne sur EC2/AWS
-# Cette option est plus sécuritaire à mon avis, elle évite d'avoir un fichier avec les infos d'accès à S3
-# -1ere: Dans la console AWS, autoriser l'accès au bucket et dossier principal de S3 à partir de l'instance EC2
-# -2e: Sur le ou les ordinateurs servant à coder, créer un profil qui aura accès au bucket
-#      Note, il est possible de créer un IAM qui accès au bucket au complet ou même plusieurs bucket
-#      Comme ça il est possible de travailler sur plusieurs comptes sans se soucier des accès
-
-# les deux fonctions précédentes ont ajouté des lignes dans .gitignore pour ne pas versionner les passwords
-# L'étape facile mais moins sécuritaire est de versionner ces deux fichiers
-# Je préfère, reprendre les deux fonctions précédentes pour enregistrer les fichiers sur EC2
-
-
 
 # ------ 3e étape: Enregistrer nos premiers utilisateurs sur S3
 # Après étape 1 (Où sont nos infos sur S3) et étape 2 (comment y accéder)
-# Ce fichier contient 2 utilisateurs différents, un admin, un super_admin, un dev
+# Ce fichier contient 5 utilisateurs différents: user1,user2, admin, super_admin, dev
 # Si les étapes 1 et 2 on été fait tel qu'expliqué, la fonction ne nécessite pas de variable.
 
 # protegR2_init3_record_s3_users_auth_file() avec lecture automatique de fichier
@@ -113,13 +88,6 @@ protegR2_init_config_global(name = "header_title", value =  "protegR2 demo")
 # si Git n'est pas déjà installé sur EC2
 # sudo apt update
 # sudo apt install git -y   # pour Ubuntu/Debian
-
-# Installation des packages CRAN:
-renv::install(c(
-  "here","shiny","tidyr","purrr","readr","dplyr","shinyWidgets",
-  "uuid","stringr","sodium","cookies","shinyjs","glue"))
-renv::install(c("hugo-lep/protegR2@dev","hugo-lep/utilsHL"))
-renv::snapshot()
 
 
 # copier le projet sur EC2
