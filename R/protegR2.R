@@ -158,7 +158,7 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
 print("protegR2_server")
 utils::globalVariables(c(
   "config_s3_location_path","i18n_db","protegR2_load_modules_servers","protegR2_load_modules_UIs",
-  "protegR2_login_ui"
+  "protegR2_login_ui","config_global"
 ))
 # ══════════════════════════════════════════════════════════════════════════════
 # protegR2_server()
