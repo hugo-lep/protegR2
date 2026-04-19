@@ -17,42 +17,37 @@
 #' }
 cookie_set_user <- function(input, session) {
   message("############################## user_cookie_set: début #####################################")
-  #(username, hash_password, session_timeout_mins = 15, session)
 
-  finger_print <- get_fingerprint(input)
-  token_value <- session$userData$user_info$token_value
+  finger_print        <- get_fingerprint(input)
+  token_value         <- session$userData$user_info$token_value
   session_timeout_mins <- session$userData$user_info$valid_user()$inactivity_delay
-  username <- session$userData$user_info$valid_user()$username
-  hash_password <- session$userData$user_info$valid_user()$hash_password
-  cookie_name <- session$userData$config_global$cookie_name
+  username            <- session$userData$user_info$valid_user()$username
+  cookie_name         <- session$userData$config_global$cookie_name
 
-  message(str_c("token_value = "), token_value)
-
+  # Fichier de session sauvegardé sur S3 — contient uniquement ce qui est
+  # nécessaire pour valider la session : token, expiration, fingerprint, username.
+  # Le hash du mot de passe n'est JAMAIS stocké ici (inutile + risque de sécurité).
   data_to_save_S3 <- tibble(
-    token_value = token_value,
-    expiration = Sys.time() + (session_timeout_mins * 60),
+    token_value  = token_value,
+    expiration   = Sys.time() + (session_timeout_mins * 60),
     finger_print = finger_print$fingerprint,
-    username = username,
-    hash_password = hash_password
+    username     = username
   )
-  print(data_to_save_S3)
 
-#  print(str_c("user_cookie_set: ", session$userData$config_s3_location$s3_bucket))
   s3saveRDS_HL(
-    value = data_to_save_S3,
+    value       = data_to_save_S3,
     object_name = paste0("session/", token_value, ".rds")
   )
+  message("Fichier de session sauvegardé sur S3 : token / expiration / fingerprint / username")
 
-  message("token file save on S3: token / expiration / username / hash_password")
-  print(data_to_save_S3)
-
-  print(str_c("debug:", session$userData$config_s3_location))
-
-  set_cookie(cookie_name = cookie_name,
+  # Le cookie côté navigateur contient uniquement le token (UUID aléatoire).
+  # TODO : déterminer le format exact attendu par la version installée de {cookies}
+  # pour le paramètre expiration. En attendant, 1 jour fixe — suffisant pour tester.
+  set_cookie(cookie_name  = cookie_name,
              cookie_value = token_value,
-             expiration = session_timeout_mins / 24 / 60)
+             expiration   = 1)
 
-  message("AvumbeRs cookie save")
+  message("Cookie navigateur enregistré")
   message("############################## user_cookie_set: fin #####################################")
 }
 
@@ -80,24 +75,15 @@ cookie_remove_user <- function(session) {
 }
 
 
-#' update cookie et cookie validator lors d'un input
-#'
-#' @param just_logged_out reactiveVal servant à éviter le cookie auto-connect
-#' @param input Variable input de la session shiny
-#' @param session Variable de la session shiny
-#'
+# Ancienne fonction de refresh de cookie par activité — remplacée par le bloc
+# throttled_inputs dans protegR2_server() (Phase 2.3). Conservée ici pour
+# référence mais n'est plus appelée. Non exportée.
+#
 #' @importFrom shiny observeEvent reactiveValuesToList req
 #' @importFrom lubridate now
 #' @importFrom s3db s3exist_HL
-#'
-#' @returns Ne retourne rien, mais met à jour le cookie et cookie validator
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' cookie_actvity_timestamp(input, session)
-#' }
-cookie_actvity_timestamp <- function(just_logged_out, input, session) {
+#' @noRd
+cookie_activity_timestamp <- function(just_logged_out, input, session) {
 
   observeEvent(reactiveValuesToList(input), {
     req(session$userData$user_info$token_value)

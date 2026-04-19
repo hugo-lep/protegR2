@@ -20,6 +20,7 @@ Imports:
     cookies,
     digest,
     dplyr,
+    glue,
     hms,
     lubridate,
     magrittr,
@@ -27,8 +28,12 @@ Imports:
     rlang,
     s3db (>= 0.1.0),
     shiny,
+    shinyjs,
+    shinyWidgets,
+    sodium,
     stringr,
     tibble,
+    utilsHL,
     uuid
 Remotes: 
     hugo-lep/s3db

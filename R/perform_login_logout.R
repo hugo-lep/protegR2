@@ -17,16 +17,15 @@
 perform_login <- function(valid_user, token_value, input, session) {
   print("############################## perform login: début #####################################")
 
+  # Mise à jour des informations de session dans userData
   session$userData$user_info$token_value <- token_value
   session$userData$user_info$valid_user(valid_user)
   session$userData$user_info$user_role(valid_user$role)
 
-  print(str_c("user_auth = ", valid_user$username))
+  message(str_c("Utilisateur connecté : ", valid_user$username, " | rôle : ", valid_user$role))
 
-  print(str_c("token value au login: ", session$userData$user_info$token_value))
+  # Enregistrement du cookie navigateur + fichier de session sur S3
   cookie_set_user(input = input, session = session)
-
-  print(session$userData$user_info)
 
   print("############################## perform login: terminé #####################################")
 }
@@ -119,7 +118,14 @@ perform_logout <- function(session) {
   for (tok in shiny_session_to_remove) {
     s <- sessions[[tok]]$session
     if (!is.null(s)) {
-      s$sendCustomMessage("forceReload", list())
+      # Utilise forceDisconnect (défini dans protegR2_ui()) plutôt que forceReload
+      # (qui n'existe plus depuis la migration bslib).
+      # Le même handler servira aussi pour la déconnexion forcée par session
+      # simultanée (Phase 2.4 — observe 45s). En Phase 2.4, alert() sera
+      # remplacé par sweetAlert, ce qui améliorera les deux cas d'un coup.
+      s$sendCustomMessage("forceDisconnect", list(
+        message = "Votre session a \u00e9t\u00e9 ferm\u00e9e suite \u00e0 une d\u00e9connexion sur un autre appareil ou navigateur."
+      ))
     }
     rm(list = tok, envir = sessions)
   }

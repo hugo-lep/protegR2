@@ -8,5 +8,6 @@
 .quarto
 inst/temp_R_files/
 inst/package_dev/
-inst/doc
+inst/brouillon/
+inst/pkg_shiny_test/
 **/.quarto/

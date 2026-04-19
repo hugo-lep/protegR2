@@ -2,7 +2,7 @@
 % Please edit documentation in R/protegR_mod_demo.R
 \name{mod_demo1_ui}
 \alias{mod_demo1_ui}
-\title{module demo de protegR, servant à présenter la structure}
+\title{module demo de protegR2, servant à présenter la structure}
 \usage{
 mod_demo1_ui(id, tr)
 }
@@ -15,7 +15,7 @@ mod_demo1_ui(id, tr)
 UI demo
 }
 \description{
-module demo de protegR, servant à présenter la structure
+module demo de protegR2, servant à présenter la structure
 }
 \examples{
 if(interactive()){
