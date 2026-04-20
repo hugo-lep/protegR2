@@ -1,28 +1,25 @@
 # ── Helper interne — appel de fonctions définies dans le projet utilisateur ───
 #
 # Problème :
-#   protegR2_server() est une fonction de package. Quand le package est installé
-#   (via renv::install, devtools::install, etc.), ses fonctions vivent dans le
-#   namespace du package. La chaîne de recherche de symboles est :
-#     namespace protegR2 → imports → base → environnement vide
-#   Le globalenv() du projet utilisateur N'EST PAS dans cette chaîne.
+#   protegR2_server() est une fonction de package installé. Son namespace ne
+#   pointe pas vers l'environnement de l'application Shiny.
 #
-#   Avec devtools::load_all(), ça fonctionne "par accident" car load_all() place
-#   le namespace dans un environnement dont le parent est globalenv() — ce qui
-#   n'est pas le cas d'un package proprement installé.
+#   Depuis Shiny 1.5, les fichiers R/ du projet sont sourcés dans un
+#   environnement ENFANT de globalenv() — la closure de la fonction server().
+#   Un appel direct (protegR2_load_modules_servers()) depuis un package échoue
+#   car le namespace cherche dans : namespace → imports → base → vide.
+#   get(..., envir = globalenv()) échoue aussi : il cherche dans globalenv() et
+#   ses PARENTS, jamais dans ses enfants.
 #
 # Solution :
-#   project_fn() récupère explicitement une fonction depuis globalenv(), là où
-#   Shiny source les fichiers R/ du projet utilisateur au démarrage de l'app.
-#   Fonctionne dans les deux cas : package installé ET devtools::load_all().
+#   sys.frames() retourne tous les environnements d'exécution de la pile
+#   d'appels courante. En cherchant dans chacun avec inherits = TRUE, on
+#   remonte aussi dans leurs closures — ce qui permet d'atteindre
+#   l'environnement Shiny où R/ a été sourcé.
 #
-# Utilisation :
-#   project_fn("ma_fonction")(arg1, arg2)
-#
-# Les trois fonctions concernées dans protegR2 :
-#   - protegR2_login_ui()             → apparence de la page de login
-#   - protegR2_load_modules_UIs()     → liste des nav_panel() selon le rôle
-#   - protegR2_load_modules_servers() → démarrage des modules Shiny du projet
+#   Fonctionne dans les deux cas :
+#     - Package installé (renv::install / devtools::install)
+#     - devtools::load_all() (où le namespace pointe déjà vers globalenv)
 
 #' Recupere une fonction definie dans le projet utilisateur
 #'
@@ -31,24 +28,30 @@
 #' \code{protegR2_login_ui()}, \code{protegR2_load_modules_UIs()} et
 #' \code{protegR2_load_modules_servers()}.
 #'
-#' Ces fonctions vivent dans \code{globalenv()} (sourcees par Shiny au
-#' demarrage). Un package installe ne peut pas les trouver par appel direct
-#' car son namespace ne pointe pas vers \code{globalenv()}. \code{project_fn()}
-#' contourne ce probleme avec \code{get(..., envir = globalenv())}.
+#' Depuis Shiny 1.5, les fichiers \code{R/} sont sources dans un environnement
+#' enfant de \code{globalenv()}, inaccessible directement depuis un namespace
+#' de package. \code{project_fn()} remonte la pile d'appels via
+#' \code{sys.frames()} pour atteindre cet environnement.
 #'
-#' @param name Nom de la fonction a recuperer depuis \code{globalenv()}
+#' @param name Nom de la fonction a recuperer
 #'
 #' @return La fonction recuperee, prete a etre appelee
 #'
 #' @noRd
 project_fn <- function(name) {
-  tryCatch(
-    get(name, envir = globalenv(), inherits = TRUE),
-    error = function(e) stop(
-      "Fonction '", name, "' introuvable dans le projet. ",
-      "Verifie que le fichier R/", name, ".R existe dans ton projet ",
-      "et qu'il definit bien cette fonction.",
-      call. = FALSE
-    )
+  # Parcourir tous les environnements d'exécution de la pile d'appels.
+  # Pour chaque frame, inherits = TRUE remonte aussi dans sa closure,
+  # ce qui permet d'atteindre l'environnement Shiny où R/ a été sourcé.
+  for (env in sys.frames()) {
+    if (exists(name, envir = env, inherits = TRUE)) {
+      return(get(name, envir = env, inherits = TRUE))
+    }
+  }
+
+  stop(
+    "Fonction '", name, "' introuvable dans le projet. ",
+    "Verifie que le fichier R/", name, ".R existe dans ton projet ",
+    "et qu'il definit bien cette fonction.",
+    call. = FALSE
   )
 }
