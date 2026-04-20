@@ -285,7 +285,7 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   # C'est ici qu'on démarre tous les modules Shiny du projet.
   # Les modules serveur doivent être appelés une fois, au démarrage de la session,
   # même si l'utilisateur n'est pas encore connecté — Shiny les met en attente.
-  protegR2_load_modules_servers(sessions, input, session)
+  project_fn("protegR2_load_modules_servers")(sessions, input, session)
 
   # ── Changement de langue ──────────────────────────────────────────────────
   #
@@ -540,7 +540,7 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   # (par exemple au démarrage avant auto-login), on attend sans erreur.
   my_panels <- reactive({
     req(session$userData$user_info$user_role())
-    protegR2_load_modules_UIs(session, tr)
+    project_fn("protegR2_load_modules_UIs")(session, tr)
   })
 
   # output$main_ui : le point central de la bascule login ↔ application.
@@ -564,7 +564,7 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
       # Structure indépendante : aucun sidebar, aucune navbar — juste la card
       # centrée. bslib permet ce changement complet de structure sans conflit CSS
       # parce que chaque état est rendu à l'intérieur du même page_fluid().
-      protegR2_login_ui(config_global, tr = tr)
+      project_fn("protegR2_login_ui")(config_global, tr = tr)
 
     } else {
 

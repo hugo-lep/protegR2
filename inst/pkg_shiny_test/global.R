@@ -104,7 +104,19 @@ s3_connection_HL(config_path = "data/")
 # Chargement de la configuration globale depuis S3
 # Ce fichier est créé par protegR2_init_config_global() lors de l'initialisation du projet
 config_global <- s3readRDS_HL(object = "config_files/config_global.rds")
+key_fmp_api <- config_global$key_fmp_api
 
+# connecter tunnel SSH: ssh -L 5433:127.0.0.1:5432 hugo@158.69.221.155
+pool <- pool::dbPool(
+  drv      = RPostgres::Postgres(),
+  dbname   = "stocktools",
+  host     = "localhost",
+  port     = 5433,
+  user     = config_global$DB_credential$user,
+  password = config_global$DB_credential$password,
+  minSize = 2,   # connexions maintenues en permanence
+  maxSize = 10   # plafond selon tes max_connections Postgres
+)
 
 # ── Étape 5 : Paramètre de layout ──────────────────────────────────────────────
 #
