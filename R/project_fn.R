@@ -43,7 +43,7 @@
 #' @noRd
 project_fn <- function(name) {
   tryCatch(
-    get(name, envir = globalenv(), inherits = FALSE),
+    get(name, envir = globalenv(), inherits = TRUE),
     error = function(e) stop(
       "Fonction '", name, "' introuvable dans le projet. ",
       "Verifie que le fichier R/", name, ".R existe dans ton projet ",
