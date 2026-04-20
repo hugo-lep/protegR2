@@ -280,6 +280,23 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   # Il repasse à FALSE au prochain clic sur "Connexion" (login manuel).
   just_logged_out <- reactiveVal(FALSE)
 
+  # ── Capture des fonctions du projet utilisateur ───────────────────────────
+  #
+  # Les trois fonctions (login_ui, load_modules_UIs, load_modules_servers) sont
+  # définies dans R/ du projet et sourcées par Shiny dans un environnement enfant
+  # de globalenv() — inaccessible directement depuis un namespace de package.
+  #
+  # project_fn() remonte la pile d'appels (sys.frames()) pour les trouver.
+  # Cela fonctionne uniquement dans un contexte NON-réactif (au démarrage).
+  # À l'intérieur d'un renderUI() ou reactive(), la pile d'appels Shiny est
+  # différente et sys.frames() ne voit plus la closure de server().
+  #
+  # Solution : capturer les trois références de fonctions ICI (au démarrage,
+  # contexte non-réactif), les stocker dans des variables locales, et les
+  # réutiliser partout — y compris dans les contextes réactifs.
+  .login_ui        <- project_fn("protegR2_login_ui")
+  .load_modules_UIs <- project_fn("protegR2_load_modules_UIs")
+
   # ── Chargement des modules serveur ────────────────────────────────────────
   # Défini dans protegR2_load_modules_servers.R (copié dans R/ du projet).
   # C'est ici qu'on démarre tous les modules Shiny du projet.
@@ -540,7 +557,7 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   # (par exemple au démarrage avant auto-login), on attend sans erreur.
   my_panels <- reactive({
     req(session$userData$user_info$user_role())
-    project_fn("protegR2_load_modules_UIs")(session, tr)
+    .load_modules_UIs(session, tr)
   })
 
   # output$main_ui : le point central de la bascule login ↔ application.
@@ -564,7 +581,7 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
       # Structure indépendante : aucun sidebar, aucune navbar — juste la card
       # centrée. bslib permet ce changement complet de structure sans conflit CSS
       # parce que chaque état est rendu à l'intérieur du même page_fluid().
-      project_fn("protegR2_login_ui")(config_global, tr = tr)
+      .login_ui(config_global, tr = tr)
 
     } else {
 
