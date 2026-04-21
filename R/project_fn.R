@@ -55,3 +55,37 @@ project_fn <- function(name) {
     call. = FALSE
   )
 }
+
+#' Recupere une variable definie dans le projet utilisateur
+#'
+#' Complement de \code{project_fn()} pour les \strong{variables} (listes,
+#' data frames, etc.) definies dans \code{R/} du projet utilisateur.
+#'
+#' Meme probleme de portee que pour les fonctions : depuis un package installe,
+#' le namespace ne peut pas atteindre les variables sourcees dans l'environnement
+#' Shiny. Ce helper remonte \code{sys.frames()} pour les trouver.
+#'
+#' Doit etre appele dans un contexte non-reactif (demarrage du server), jamais
+#' depuis un \code{reactive()}, \code{observe()} ou \code{renderUI()} —
+#' la pile d'appels y est differente.
+#'
+#' @param name Nom de la variable a recuperer
+#'
+#' @return La valeur de la variable
+#'
+#' @noRd
+project_var <- function(name) {
+  # Meme mecanique que project_fn() : remonter sys.frames() avec inherits = TRUE
+  # pour atteindre l'environnement enfant de globalenv() où Shiny a sourcé R/.
+  for (env in sys.frames()) {
+    if (exists(name, envir = env, inherits = TRUE)) {
+      return(get(name, envir = env, inherits = TRUE))
+    }
+  }
+
+  stop(
+    "Variable '", name, "' introuvable dans le projet. ",
+    "Verifie que la variable est bien definie dans un fichier R/ de ton projet.",
+    call. = FALSE
+  )
+}

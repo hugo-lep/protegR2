@@ -157,8 +157,8 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
 
 print("protegR2_server")
 utils::globalVariables(c(
-  "config_s3_location_path","i18n_db","protegR2_load_modules_servers","protegR2_load_modules_UIs",
-  "protegR2_login_ui","config_global"
+  "config_s3_location_path","config_global",
+  "protegR2_load_modules_servers","protegR2_load_modules_UIs","protegR2_login_ui"
 ))
 # ══════════════════════════════════════════════════════════════════════════════
 # protegR2_server()
@@ -248,7 +248,13 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   # make_tr() crée une closure (une fonction qui "capture" ses paramètres) :
   # elle lit le reactiveVal idioma à chaque appel, donc tr("login") retourne
   # automatiquement la bonne langue sans qu'on ait besoin de la reconfigurer.
-  tr <- make_tr(i18n = i18n_db, lang = session$userData$idioma)
+  #
+  # project_var("i18n_db") remonte sys.frames() pour trouver la variable i18n_db
+  # définie dans R/i18n_db.R du projet utilisateur — inaccessible directement
+  # depuis le namespace du package installé. L'évaluation est forcée ici, dans
+  # le contexte non-réactif du démarrage, évitant l'évaluation paresseuse qui
+  # échouerait plus tard depuis un renderUI() ou un reactive().
+  tr <- make_tr(i18n = project_var("i18n_db"), lang = session$userData$idioma)
 
   # ── Compteur d'échecs de connexion (protection brute force) ───────────────
   #
