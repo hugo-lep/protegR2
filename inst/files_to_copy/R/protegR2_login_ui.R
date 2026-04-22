@@ -61,15 +61,21 @@ protegR2_login_ui <- function(config_global, tr = NULL) {
 
     # ── CSS de la page de login ─────────────────────────────────────────────────
     # Modifie ce bloc pour personnaliser l'apparence.
-    # Les fichiers statiques (images) vont dans inst/app/www/ du projet.
-    # Shiny sert ce dossier à la racine : url('background.png')
+    #
+    # Convention pour les images statiques :
+    #   Les images vont dans inst/app/www/ du projet.
+    #   global.R déclare : addResourcePath("images", "inst/app/www")
+    #   → les images sont accessibles via l'URL /images/nom_du_fichier.
+    #   Le CSS utilise donc url('/images/background.png'), pas url('background.png').
+    #   (url('background.png') ne fonctionnerait que si l'image était dans www/
+    #    à la racine du projet — le dossier servi automatiquement par Shiny.)
     tags$style(HTML("
 
-      /* Fond plein écran — remplace background.png dans www/ par ta propre image */
+      /* Fond plein écran — remplace background.png dans inst/app/www/ par ta propre image */
       .login-background {
         min-height: 100vh;
         width: 100%;
-        background-image: url('background.png');
+        background-image: url('/images/background.png');
         background-size: cover;
         background-position: center center;
         display: flex;

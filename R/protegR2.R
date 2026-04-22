@@ -186,7 +186,7 @@ utils::globalVariables(c(
 #' @param style Layout : \code{"sidebar"}, \code{"navbar"}, \code{"fluid"}
 #'   ou \code{"fillable"}
 #'
-#' @importFrom bslib navset_pill_list navset_underline navset_tab navset_card_underline
+#' @importFrom bslib navset_pill_list navset_underline navset_tab navset_card_underline page_navbar page_fixed page_fillable
 #' @importFrom shiny observe observeEvent reactive renderUI req reactiveVal
 #'   invalidateLater reactiveValuesToList throttle actionButton icon tagList
 #'   isolate updateQueryString getQueryString
@@ -550,77 +550,51 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   # ── Rendu principal : login ou application ────────────────────────────────
   # ══════════════════════════════════════════════════════════════════════════
   #
-  # my_panels est un reactive() (pas un reactiveVal) :
-  #   - reactive() = expression réactive qui CALCULE et CACHE son résultat
-  #   - Elle se ré-exécute uniquement si ses dépendances changent
-  #   - Ici la dépendance est user_role() : les panels changent selon le rôle
-  #   - Pourquoi un reactive() séparé et pas tout dans renderUI ?
-  #     Pour que la liste de panels ne soit recalculée que si le rôle change —
-  #     pas à chaque re-rendu de main_ui (qui peut se déclencher pour d'autres
-  #     raisons comme le changement de langue).
+  # ══════════════════════════════════════════════════════════════════════════
+  # ── Rendu principal : login ou application ────────────────────────────────
+  # ══════════════════════════════════════════════════════════════════════════
   #
-  # req(user_role()) : garde réactive — si le rôle n'est pas encore défini
-  # (par exemple au démarrage avant auto-login), on attend sans erreur.
-  my_panels <- reactive({
-    req(session$userData$user_info$user_role())
-    .load_modules_UIs(session, tr)
-  })
-
   # output$main_ui : le point central de la bascule login ↔ application.
   #
   # renderUI() est ré-exécuté automatiquement quand user_auth() change.
-  # C'est la dépendance réactive clé de tout le système d'authentification :
-  #   - user_auth() == NULL → page de login (structure bslib minimale)
-  #   - user_auth() != NULL → application complète avec navigation
+  #   - user_auth() == NULL → page de login (card centrée, sans navigation)
+  #   - user_auth() != NULL → layout retourné par protegR2_load_modules_UIs()
   #
-  # do.call(fonction, c(liste_d_args_fixes, liste_de_panels)) :
-  #   navset_pill_list(id = "nav_tab", well = FALSE, panel1, panel2, panel3, ...)
-  # On ne peut pas écrire navset_pill_list(id = ..., my_panels()) directement
-  # parce que my_panels() retourne UNE LISTE, pas des arguments séparés.
-  # do.call() "déplie" la liste en arguments individuels — c'est l'équivalent
-  # du spread operator (...) dans JavaScript ou Python.
+  # Architecture "layout dans le projet" :
+  #   protegR2_load_modules_UIs() vit dans R/ du projet (copié par
+  #   protegR2_init_layout()). Elle retourne la structure de page COMPLÈTE :
+  #   navset_pill_list(), page_navbar(), tagList(gear, page_fillable()), etc.
+  #   protegR2_server() ne connaît pas le style — il rend ce qu'il reçoit.
+  #
+  # Convention contractuelle entre ce fichier et le template :
+  #   Le composant de navigation doit utiliser id = "nav_tab" pour que
+  #   l'observeEvent ci-dessous puisse mettre à jour l'URL.
+  #
+  # Restauration de l'onglet actif :
+  #   Les templates lisent isolate(getQueryString(session))$page directement
+  #   dans protegR2_load_modules_UIs() — aucun paramètre à passer ici.
   output$main_ui <- renderUI({
 
     if (is.null(session$userData$user_info$user_auth())) {
 
-      # ── Page de login ──────────────────────────────────────────────────────
-      # Structure indépendante : aucun sidebar, aucune navbar — juste la card
-      # centrée. bslib permet ce changement complet de structure sans conflit CSS
-      # parce que chaque état est rendu à l'intérieur du même page_fluid().
-      .login_ui(config_global, tr = tr)
+      # ── Page de login ────────────────────────────────────────────────────────
+      # Structure indépendante : card centrée, sans navbar ni sidebar.
+      # config_global lu depuis session$userData (capturé au démarrage)
+      # pour éviter l'évaluation paresseuse depuis le namespace du package.
+      .login_ui(session$userData$config_global, tr = tr)
 
     } else {
 
       # ── Application connectée ──────────────────────────────────────────────
-
-      # ── Restauration de la page active ──────────────────────────────────────
-      # Calculé ICI, avant le tagList(), car une assignation R ne peut pas
-      # figurer à l'intérieur d'un tagList() (qui n'accepte que des éléments UI).
       #
-      # isolate() lit l'URL sans créer de dépendance réactive.
-      # Sans isolate(), chaque updateQueryString() (déclenché à chaque
-      # changement d'onglet) invaliderait renderUI → boucle infinie.
+      # Le bouton logout est géré ici (et non dans le template) car c'est une
+      # fonctionnalité core de protegR2 — garantit sa présence quel que soit
+      # le layout choisi par l'utilisateur.
       #
-      # Ce bloc s'exécute à chaque re-rendu de main_ui, notamment :
-      #   - Au login (manuel ou auto) : restaure la page sauvegardée dans l'URL
-      #   - Au changement de langue   : my_panels() se recalcule → re-rendu →
-      #     l'URL contient toujours la page active → onglet préservé
-      #
-      # Si l'URL ne contient pas de ?page= (première connexion, ou valeur inconnue),
-      # saved_page vaut NULL et bslib sélectionne le premier panel par défaut.
-      #
-      # Convention : pour que la restauration survive au changement de langue,
-      # les nav_panel() dans protegR2_load_modules_UIs.R doivent utiliser un
-      # argument value= stable (indépendant de la langue) :
-      #   nav_panel(title = tr("rapports"), value = "rapports", ...)
-      saved_page <- isolate(getQueryString(session))$page
-
+      # z-index 9998 : sous le sélecteur de langue (9999), au-dessus du contenu.
+      # right: 140px laisse la place au sélecteur de langue (110px + marge).
       tagList(
 
-        # Bouton de déconnexion en position fixe — visible sur toutes les pages.
-        # z-index 9998 : en dessous du sélecteur de langue (9999) mais au-dessus
-        # de tous les éléments de contenu. right: 140px laisse la place au
-        # sélecteur de langue (110px de large + 15px de marge + marge supplémentaire).
         div(
           style = "position: fixed; top: 10px; right: 140px; z-index: 9998;",
           actionButton(
@@ -630,41 +604,10 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
           )
         ),
 
-        # Dispatch du layout selon le style choisi dans global.R / server.R.
-        # Chaque navset_* reçoit la même liste de nav_panel() — seule la
-        # présentation visuelle change (sidebar vs onglets horizontaux vs etc.)
-        #
-        # L'id "nav_tab" permet de lire l'onglet actif via input$nav_tab et
-        # de le changer programmatiquement via nav_select("nav_tab", "valeur").
-        switch(style,
+        # Layout complet retourné par le template R/ du projet.
+        # Peut être navset_pill_list(), page_navbar(), page_fillable(), etc.
+        .load_modules_UIs(session, tr)
 
-          "sidebar" = do.call(
-            navset_pill_list,
-            c(list(id = "nav_tab", well = FALSE, selected = saved_page), my_panels())
-            # well = FALSE : supprime l'arrière-plan gris qui encadre la liste
-            # par défaut dans navset_pill_list — rendu plus propre
-          ),
-
-          "navbar" = do.call(
-            navset_underline,
-            c(list(id = "nav_tab", selected = saved_page), my_panels())
-            # navset_underline : onglets horizontaux avec soulignement actif
-            # (plus moderne que navset_tab qui utilise des onglets avec bordure)
-          ),
-
-          "fluid" = do.call(
-            navset_tab,
-            c(list(id = "nav_tab", selected = saved_page), my_panels())
-            # navset_tab : onglets classiques Bootstrap dans une page fluid
-          ),
-
-          "fillable" = do.call(
-            navset_card_underline,
-            c(list(id = "nav_tab", selected = saved_page), my_panels())
-            # navset_card_underline : onglets avec card plein écran — idéal
-            # pour les dashboards avec graphiques qui occupent tout l'espace
-          )
-        )
       )
     }
   })

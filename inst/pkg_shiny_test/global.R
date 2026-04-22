@@ -61,24 +61,48 @@ library(bslib)        # layouts Bootstrap 5 (page_fluid, navset_*, etc.)
 #library(utilsHL)      # make_tr() pour les traductions (remotes::install_github("hugo-lep/utilsHL"))
 
 
-# ── Étape 3 : Sourcer les fichiers template ────────────────────────────────────
+# ── Étape 3 : Choix du style de layout ────────────────────────────────────────
 #
-# Ces fichiers vivent dans inst/files_to_copy/R/ — ils ne font PAS partie du
+# Changer cette valeur pour tester les différents templates de navigation.
+# Dans un projet utilisateur, ce choix est fait une seule fois via
+# protegR2_init_layout(style) qui copie le bon fichier dans R/.
+#
+#   "sidebar"  → navset_pill_list() — navigation verticale à gauche
+#   "navbar"   → page_navbar()      — barre horizontale en haut
+#   "fixed"    → page_fixed() + navset_tab() + engrenage flottant
+#   "fillable" → page_fillable() + navset_card_underline() + engrenage flottant
+style <- "fluid"
+
+
+# ── Étape 4 : Sourcer les fichiers template ────────────────────────────────────
+#
+# Ces fichiers vivent dans inst/files_to_copy/ — ils ne font PAS partie du
 # package (ils ne sont pas dans R/). devtools::load_all() ne les charge donc pas.
 # On les source manuellement ici pour les rendre disponibles.
 #
 # C'est exactement ce qui se passe dans un projet utilisateur : ces fichiers
-# sont copiés dans R/ du projet par protegR2_copy_files(), et R les source
-# automatiquement au démarrage de l'app Shiny.
+# sont copiés dans R/ du projet par protegR2_init_project() et
+# protegR2_init_layout(), et R les source automatiquement au démarrage.
 #
-# Chemins relatifs à dev/ (répertoire courant quand l'app est lancée).
-source("../files_to_copy/R/i18n_db.R")                      # définit i18n_db
-source("../files_to_copy/R/protegR2_login_ui.R")            # protegR2_login_ui()
-source("../files_to_copy/R/protegR2_load_modules_UIs.R")    # protegR2_load_modules_UIs()
+# Chemins relatifs à pkg_shiny_test/ (répertoire courant quand l'app est lancée).
+source("../files_to_copy/R/i18n_db.R")                       # définit i18n_db
+source("../files_to_copy/R/protegR2_login_ui.R")             # protegR2_login_ui()
 source("../files_to_copy/R/protegR2_load_modules_servers.R") # protegR2_load_modules_servers()
 
+# Le template UI est chargé dynamiquement selon le style choisi ci-dessus.
+# Équivalent de ce que protegR2_init_layout(style) copie dans R/ du projet.
+source(paste0("../files_to_copy/template_UIs_style/", style, ".R"))
 
-# ── Étape 4 : Configuration de l'application ──────────────────────────────────
+
+# ── Étape 5 : Ressources statiques ────────────────────────────────────────────
+#
+# addResourcePath("images", "www") mappe le dossier www/ local au préfixe URL
+# /images/ — ce qui permet d'écrire url('/images/background.png') dans le CSS.
+# Convention cohérente avec les projets utilisateurs qui utilisent inst/app/www/
+# + addResourcePath("images", "inst/app/www") dans leur propre global.R.
+addResourcePath("images", "www")
+
+# ── Étape 6 : Configuration de l'application ──────────────────────────────────
 
 # sessions est l'environnement global qui trace toutes les sessions Shiny actives.
 # Dans un projet utilisateur, il est défini dans global.R.
@@ -118,11 +142,8 @@ pool <- pool::dbPool(
   maxSize = 10   # plafond selon tes max_connections Postgres
 )
 
-# ── Étape 5 : Paramètre de layout ──────────────────────────────────────────────
+# ── Étape 7 : Paramètre de layout ──────────────────────────────────────────────
 #
-# Changer cette valeur pour tester les différents styles de navigation :
-#   "sidebar"  → menu vertical à gauche (navset_pill_list)
-#   "navbar"   → onglets horizontaux en haut (navset_underline)
-#   "fluid"    → onglets dans une page libre (navset_tab)
-#   "fillable" → card plein écran (navset_card_underline)
-style <- "sidebar"
+# style est défini à l'étape 3 — il détermine le template sourcé et transmis
+# à protegR2_ui() via server.R. Changer la valeur à l'étape 3 suffit.
+
