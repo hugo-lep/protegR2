@@ -23,6 +23,12 @@ L'utilisateur veut comprendre tout le code produit — zéro dette technique.
 
 ---
 
+## Plan de développement
+
+Le fichier `inst/package_dev/plan.md` contient le plan de développement détaillé avec toutes les phases, tâches complétées (✅) et à faire (☐). **Consulter ce fichier avant de proposer ou implémenter quoi que ce soit** — les priorités y sont définies et certaines tâches ont déjà été faites.
+
+---
+
 ## Git — Règles strictes
 
 - Claude ne peut écrire que sur la branche `claude/dev`
