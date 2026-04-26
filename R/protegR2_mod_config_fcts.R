@@ -7,13 +7,7 @@
 #' @importFrom shiny showNotification
 #' @importFrom stringr str_glue
 #'
-#' @returns True si identique et respecte les conditions; sinon FALSE
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' protegR2_fct_validate_password(pwd1, pwd2, min_length = 5)
-#' }
+#' @noRd
 protegR2_fct_validate_password <- function(pwd1, pwd2, min_length = 5) {
 
   if (pwd1 != pwd2) {
@@ -38,13 +32,7 @@ utils::globalVariables(c(
 #' @importFrom dplyr mutate if_else
 #' @importFrom s3db s3readRDS_HL s3saveRDS_HL
 #'
-#' @returns Rien, mais modifie les données sur S3
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' protegR2_fct_change_pwd(username, new_hash,config_s3_location)
-#' }
+#' @noRd
 protegR2_fct_change_pwd <- function(username,
                                    new_hash,
                                    config_s3_location) {

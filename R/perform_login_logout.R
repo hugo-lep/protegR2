@@ -7,13 +7,7 @@
 #'
 #' @importFrom stringr str_c
 #'
-#' @returns Ne retourne rien, mais enregistre un token et modifie l'utilisateur actif
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' perform_login(valid_user,token_value,session)
-#' }
+#' @noRd
 perform_login <- function(valid_user, token_value, input, session) {
   print("############################## perform login: début #####################################")
 
@@ -47,13 +41,7 @@ utils::globalVariables(c(
 #' @importFrom stringr str_c
 #' @importFrom magrittr %>%
 #'
-#' @returns Rien, mais modifie des paramètre
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' perform_logout(session)
-#' }
+#' @noRd
 perform_logout <- function(session) {
 
   token_value <- session$userData$user_info$token_value

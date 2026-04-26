@@ -8,13 +8,7 @@
 #' @importFrom s3db s3saveRDS_HL
 #' @importFrom cookies set_cookie
 #'
-#' @returns Ne retourne rien, mais enregistre un cookie et met à jour le "cookie validator" (fichier sur S3)
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' cookie_set_user(input,session)
-#' }
+#' @noRd
 cookie_set_user <- function(input, session) {
   message("############################## user_cookie_set: début #####################################")
 
@@ -61,13 +55,7 @@ cookie_set_user <- function(input, session) {
 #'
 #' @importFrom cookies remove_cookie
 #'
-#' @returns Ne retourne rien, mais efface le cookie
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' cookie_remove_user(session)
-#' }
+#' @noRd
 cookie_remove_user <- function(session) {
 
   remove_cookie(session$userData$config_global$cookie_name)
@@ -123,13 +111,7 @@ utils::globalVariables(c(
 #' @importFrom cookies get_cookie
 #' @importFrom s3db s3exist_HL s3readRDS_HL
 #'
-#' @returns Rien, mais modifie user_auth(), ce qui fait basculer dans l'application principale plutôt que la page d'authentification
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' cookie_auto_login(input,session)
-#' }
+#' @noRd
 cookie_auto_login <- function(input, session) {
 
   cookie_token <- cookies::get_cookie(session$userData$config_global$cookie_name)
@@ -185,13 +167,7 @@ utils::globalVariables(c(
 #' @importFrom dplyr pull bind_rows filter
 #' @importFrom s3db s3list_HL s3delete_HL
 #'
-#' @returns Rien mais efface les cookies validators sur S3
-#' @export
-#'
-#' @examples
-#' if(interactive()){
-#' cookie_validator_delete(users,session)
-#' }
+#' @noRd
 cookie_validator_delete <- function(users, session) {
 
   objets <- s3list_HL(prefix = "session/")
