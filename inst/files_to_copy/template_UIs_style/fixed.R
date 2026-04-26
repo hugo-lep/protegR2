@@ -1,28 +1,43 @@
 print("protegR2_load_modules_UIs — style: fixed")
 
-# Ce fichier est copié dans R/ de ton projet par protegR2_init_layout("fixed").
-# C'est ici que tu branches tes propres modules Shiny.
-#
 # Style "fixed" : page à largeur maximale fixe centrée (page_fixed),
 # avec onglets horizontaux classiques (navset_tab).
 # Adapté aux applications avec beaucoup de contenu texte ou formulaires.
 #
-# Configuration (⚙) :
-#   Le bouton engrenage flottant (bas droite) déclenche un modal de configuration.
-#   Les panneaux de config ne sont PAS dans le navset principal — ils vivent
-#   dans le modal, accessible uniquement depuis ce bouton.
+# Logout + sélecteur de langue :
+#   Intégrés dans un header flexbox en haut de la page.
 #
-#   La logique serveur du modal (observeEvent + showModal) doit être ajoutée
-#   dans protegR2_load_modules_servers.R — voir le bloc commenté à la fin
-#   de ce fichier.
+# Configuration (⚙) : Bouton flottant pour accéder au menu de configuration
 #
 # Convention obligatoire : id = "nav_tab" sur le navset_tab().
 
 protegR2_load_modules_UIs <- function(session, tr) {
 
-  selected <- isolate(getQueryString(session))$page
-  role     <- session$userData$user_info$user_role()
+  selected      <- isolate(getQueryString(session))$page %||% "home"
+  role          <- session$userData$user_info$user_role()
+  config_global <- session$userData$config_global
   req(role)
+
+  # ── CSS masquant les boutons fixes + bouton engrenage flottant ───────────
+  layout_controls <- protegr2_layout_controls(gear = TRUE)
+
+  # ── Dropdown de sélection de langue ──────────────────────────────────────
+  lang_dropdown <- protegr2_lang_dropdown(config_global, session$userData$idioma())
+
+  # ── Header : titre + langue + logout ──────────────────────────────────────
+  header <- tags$div(
+    class = "d-flex justify-content-between align-items-center py-2 mb-3 border-bottom",
+    tags$span("Titre de l'application", class = "h5 mb-0"),
+    tags$div(
+      class = "d-flex gap-2 align-items-center",
+      lang_dropdown,
+      actionButton(
+        inputId = "logout",
+        label   = tagList(icon("right-from-bracket"), " ", tr("logout")),
+        class   = "btn btn-outline-secondary btn-sm"
+      )
+    )
+  )
 
   # ── Panneaux principaux (sans configuration — celle-ci est dans le modal) ──
 
@@ -46,29 +61,13 @@ protegR2_load_modules_UIs <- function(session, tr) {
 
   )
 
-  # ── Bouton engrenage flottant ──────────────────────────────────────────────
-  # Positionné en bas à droite, z-index sous le bouton logout (z-index 9998).
-  # Déclenche input$open_config_modal — observé dans protegR2_load_modules_servers.R.
-  gear_button <- tags$div(
-    style = "position: fixed; bottom: 24px; right: 24px; z-index: 9997;",
-    actionButton(
-      inputId = "open_config_modal",
-      label   = NULL,
-      icon    = icon("gear"),
-      class   = "btn btn-secondary",
-      style   = "border-radius: 50%; width: 46px; height: 46px; padding: 0;",
-      title   = "Configuration"
-    )
-  )
-
   # ── Rendu : page_fixed + navset_tab ───────────────────────────────────────
   # page_fixed() centre le contenu avec une largeur maximale (~1140px).
   # navset_tab() affiche les onglets horizontaux classiques Bootstrap.
-  # tagList() combine le bouton flottant et la page — les deux sont rendus
-  # dans le même uiOutput("main_ui") de protegR2_server.
   tagList(
-    gear_button,
+    layout_controls,
     page_fixed(
+      header,
       do.call(navset_tab, c(
         list(id = "nav_tab", selected = selected),
         panels

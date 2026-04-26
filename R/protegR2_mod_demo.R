@@ -145,6 +145,197 @@ mod_demo_subitem2 <- function(id) {
   )
 }
 
+#' Module démo pour illustrer page_fillable — section UI
+#'
+#' @description
+#' Démontre la capacité de page_fillable() à étirer le contenu pour occuper
+#' toute la hauteur disponible du viewport, sans scrollbar.
+#'
+#' Architecture :
+#'   card(fill = TRUE)       → la card s'étire pour remplir la hauteur
+#'   full_screen = TRUE      → bouton pour passer en plein écran (bslib)
+#'   plotOutput(fill = TRUE) → le graphique remplit la card
+#'
+#' Ce comportement n'est visible qu'avec page_fillable() comme conteneur.
+#' Dans page_fluid() ou page_fixed(), le contenu conserve sa hauteur naturelle.
+#'
+#' @param id ID du module
+#'
+#' @importFrom shiny NS sliderInput plotOutput
+#' @importFrom bslib card card_header
+#'
+#' @returns UI du module démo fillable
+#' @export
+#'
+#' @examples
+#' if (interactive()) {
+#'   mod_fillable_ui("fillable_demo")
+#' }
+mod_fillable_ui <- function(id) {
+  ns <- NS(id)
+
+  # card() de bslib est le composant naturel pour les layouts fillable.
+  # fill = TRUE      : la card s'étire verticalement pour occuper
+  #                    tout l'espace que page_fillable() lui alloue.
+  # full_screen = TRUE : ajoute un bouton en haut à droite pour passer
+  #                    la card en plein écran (fonctionnalité bslib native).
+  # plotOutput(fill = TRUE) : le graphique remplit la card — sans ça,
+  #                    le plot aurait une hauteur fixe (400px par défaut)
+  #                    et la card ne s'étirerait pas visuellement.
+  card(
+    fill        = TRUE,
+    full_screen = TRUE,
+    card_header(
+      tagList(icon("chart-line"), " Démo page_fillable — graphique plein écran")
+    ),
+    sliderInput(ns("n"), "Nombre de points", min = 50, max = 500, value = 200),
+    plotOutput(ns("plot"), fill = TRUE)
+  )
+}
+
+#' Module démo pour illustrer page_fillable — section serveur
+#'
+#' @param id ID du module
+#'
+#' @importFrom shiny moduleServer renderPlot
+#' @importFrom stats rnorm
+#'
+#' @returns Calculs nécessaires au UI
+#' @export
+#'
+#' @examples
+#' if (interactive()) {
+#'   mod_fillable_server("fillable_demo")
+#' }
+mod_fillable_server <- function(id) {
+  moduleServer(id, function(input, output, session) {
+    output$plot <- renderPlot({
+      x <- rnorm(input$n)
+      y <- rnorm(input$n)
+      plot(
+        x, y,
+        col  = "steelblue",
+        pch  = 19,
+        cex  = 0.7,
+        main = paste("Nuage de", input$n, "points — le graphique remplit la hauteur disponible"),
+        xlab = "x",
+        ylab = "y"
+      )
+    })
+  })
+}
+
+
+#' Module démo pour illustrer page_sidebar — filtres (section UI sidebar)
+#'
+#' @description
+#' Démontre l'utilisation typique de page_sidebar() : filtres à gauche dans
+#' le sidebar, résultat réactif à droite dans la zone principale.
+#'
+#' Ce module est divisé en deux fonctions UI (même id) + un serveur :
+#'   mod_demo_sidebar_filter_ui()  → placé dans sidebar()
+#'   mod_demo_sidebar_content_ui() → placé dans la zone principale
+#'   mod_demo_sidebar_server()     → relie les deux via le même id
+#'
+#' Si le programmeur veut des onglets dans la zone principale, il les place
+#' directement dans mod_demo_sidebar_content_ui() — pas dans le template.
+#'
+#' @param id ID du module
+#'
+#' @importFrom shiny NS tagList sliderInput selectInput hr h5
+#'
+#' @returns UI des filtres pour le sidebar
+#' @export
+#'
+#' @examples
+#' if (interactive()) {
+#'   mod_demo_sidebar_filter_ui("sidebar_demo")
+#' }
+mod_demo_sidebar_filter_ui <- function(id) {
+  ns <- NS(id)
+
+  tagList(
+    h5("Filtres"),
+    hr(),
+    sliderInput(ns("n"),
+                label = "Nombre de points",
+                min   = 10,
+                max   = 300,
+                value = 100),
+    selectInput(ns("couleur"),
+                label   = "Couleur",
+                choices = c("Bleu"    = "steelblue",
+                            "Rouge"   = "firebrick",
+                            "Vert"    = "seagreen"),
+                selected = "steelblue")
+  )
+}
+
+
+#' Module démo pour illustrer page_sidebar — contenu (section UI principale)
+#'
+#' @description
+#' Zone principale du module démo sidebar. Reçoit les résultats calculés
+#' par le serveur à partir des filtres définis dans mod_demo_sidebar_filter_ui().
+#'
+#' @param id ID du module (doit être identique à mod_demo_sidebar_filter_ui)
+#'
+#' @importFrom shiny NS plotOutput
+#'
+#' @returns UI de la zone principale
+#' @export
+#'
+#' @examples
+#' if (interactive()) {
+#'   mod_demo_sidebar_content_ui("sidebar_demo")
+#' }
+mod_demo_sidebar_content_ui <- function(id) {
+  ns <- NS(id)
+
+  plotOutput(ns("plot"), height = "500px")
+}
+
+
+#' Module démo pour illustrer page_sidebar — serveur
+#'
+#' @description
+#' Relie les filtres (sidebar) au contenu (zone principale).
+#' Le graphique se met à jour automatiquement quand l'utilisateur
+#' modifie les filtres — c'est la réactivité Shiny standard.
+#'
+#' @param id ID du module
+#'
+#' @importFrom shiny moduleServer renderPlot
+#' @importFrom stats rnorm
+#'
+#' @returns Calculs nécessaires au UI
+#' @export
+#'
+#' @examples
+#' if (interactive()) {
+#'   mod_demo_sidebar_server("sidebar_demo")
+#' }
+mod_demo_sidebar_server <- function(id) {
+  moduleServer(id, function(input, output, session) {
+
+    output$plot <- renderPlot({
+      x <- rnorm(input$n)
+      y <- rnorm(input$n)
+      plot(
+        x, y,
+        col  = input$couleur,
+        pch  = 19,
+        cex  = 0.8,
+        main = paste("Nuage de", input$n, "points"),
+        xlab = "x",
+        ylab = "y"
+      )
+    })
+
+  })
+}
+
+
 #' Module démo pour faire tourner un avion section ui
 #'
 #' @description

@@ -1,106 +1,55 @@
 print("protegR2_load_modules_UIs — style: fluid")
 
-# Ce fichier est copié dans R/ de ton projet par protegR2_init_layout("fluid").
-# C'est ici que tu branches tes propres modules Shiny.
+# Style "fluid" : conteneur pleine largeur (page_fluid), sans navigation
+# intégrée. C'est le layout le plus simple — un header, un module, c'est tout.
+# Si tu veux de la navigation, ajoute un navset_*() directement dans ton module
+# ou après le header dans page_fluid().
 #
-# Style "fluid" : conteneur pleine largeur (page_fluid) avec navigation par
-# pills verticaux intégrés (navset_pill_list). C'est le layout le plus simple
-# et le plus flexible — aucune mécanique de synchronisation côté serveur requise.
+# Logout + sélecteur de langue :
+#   Intégrés dans un header flexbox en haut de la page.
 #
-# Architecture :
-#   navset_pill_list() gère navigation ET contenu dans un seul widget :
-#     - pills verticaux affichés dans une colonne à gauche
-#     - contenu du panel sélectionné affiché dans la zone droite
-#   Contrairement au style "sidebar", tout est auto-contenu — pas besoin de
-#   deux navsets séparés ni d'observateur de synchronisation.
-#
-# Variantes possibles :
-#   Si tu préfères des onglets horizontaux, remplace navset_pill_list() par
-#   navset_tab() ou navset_underline(). La convention id = "nav_tab" reste
-#   obligatoire dans tous les cas pour que protegR2_server mette à jour l'URL.
-#
-# Convention obligatoire : id = "nav_tab" sur le navset_pill_list().
+# Configuration (⚙) : Bouton flottant pour accéder au menu de configuration
 
 protegR2_load_modules_UIs <- function(session, tr) {
 
-  selected <- isolate(getQueryString(session))$page
-  role     <- session$userData$user_info$user_role()
+  role          <- session$userData$user_info$user_role()
+  config_global <- session$userData$config_global
   req(role)
 
-  # ── Panneaux principaux ────────────────────────────────────────────────────
+  # ── CSS masquant les boutons fixes + bouton engrenage flottant ───────────
+  layout_controls <- protegr2_layout_controls(gear = TRUE) # CSS masquant boutons fixes + gear = TRUE pour menu config
 
-  panels <- list(
+  # ── Dropdown de sélection de langue ──────────────────────────────────────
+  # Construit depuis config_global$supported_idiomas (défini dans global.R).
+  # Retourne NULL si show_idioma est FALSE — ignoré silencieusement par tagList().
+  lang_dropdown <- protegr2_lang_dropdown(config_global, session$userData$idioma())
 
-    nav_panel(title = tr("menu1_sidebar_type_access"),
-              value = "home",
-              icon  = icon("house"),
-              mod_demo2_ui("demo2", session = session)),
-
-    nav_panel(title = tr("menu2_module_demo"),
-              value = "demo",
-              icon  = icon("chart-bar"),
-              mod_demo1_ui("demo1", tr)),
-
-    nav_menu(title = tr("subItem_test"),
-             icon  = icon("folder"),
-      nav_panel(title = tr("subitem1"), value = "subitem1", mod_demo_subitem1_ui("subitem1")),
-      nav_panel(title = tr("subitem2"), value = "subitem2", mod_demo_airplane_ui("turn_plane"))
+  # ── Header : titre + langue + logout ──────────────────────────────────────
+  # Bande en haut de la page, séparée du contenu par une bordure.
+  header <- tags$div(
+    class = "d-flex justify-content-between align-items-center py-2 mb-3 border-bottom",
+    tags$span("Titre de l'application", class = "h5 mb-0"),
+    tags$div(
+      class = "d-flex gap-2 align-items-center",
+      lang_dropdown,
+      actionButton(
+        inputId = "logout",
+        label   = tagList(icon("right-from-bracket"), " ", tr("logout")),
+        class   = "btn btn-outline-secondary btn-sm"
+      )
     )
-
   )
 
-  # ── Panneaux de configuration ──────────────────────────────────────────────
-  # Inclus directement dans le navset (pas de modal comme fixed/fillable).
-  # Le menu "Configuration" apparaît en bas de la liste de pills, comme dans
-  # le style "navbar". L'accès est restreint selon le rôle de l'utilisateur.
-
-  config_panels <- list(
-    nav_panel(title = tr("your_account"), value = "your_account", mod_config_ui1("config"))
-  )
-
-  if (role %in% c("admin", "super_admin", "dev")) {
-    config_panels <- c(config_panels, list(
-      nav_panel(title = tr("admin_access"), value = "admin_access", mod_config_ui2("config"))
-    ))
-  }
-
-  if (role %in% c("super_admin", "dev")) {
-    config_panels <- c(config_panels, list(
-      nav_panel(title = tr("super_admin_access"), value = "super_admin_access", mod_config_ui3("config"))
-    ))
-  }
-
-  if (role == "dev") {
-    config_panels <- c(config_panels, list(
-      nav_panel(title = tr("dev_access"), value = "dev_access", mod_config_ui4("config"))
-    ))
-  }
-
-  panels <- c(panels, list(
-    do.call(nav_menu, c(
-      list(title = tr("configuration"), icon = icon("gear")),
-      config_panels
-    ))
-  ))
-
-  # ── Rendu : page_fluid + navset_pill_list ─────────────────────────────────
-  # page_fluid() : conteneur Bootstrap pleine largeur, s'adapte à toutes les
-  #   tailles d'écran. Pas de largeur maximale fixe (contrairement à page_fixed).
-  #
-  # navset_pill_list() : navigation verticale auto-contenue.
-  #   well = FALSE   : supprime le fond grisé autour des pills (aspect plus propre).
-  #   widths = c(2, 10) : 2/12 colonnes pour les pills, 10/12 pour le contenu
-  #     (grille Bootstrap 12 colonnes). Ajuste selon tes besoins :
-  #     c(2, 10) → pills étroits   | c(3, 9) → pills plus larges.
-  page_fluid(
-    do.call(navset_pill_list, c(
-      list(
-        id      = "nav_tab",
-        selected = selected,
-        well    = FALSE,
-        widths  = c(2, 10)
-      ),
-      panels
-    ))
+  # ── Rendu : page_fluid ────────────────────────────────────────────────────
+  # Conteneur Bootstrap pleine largeur, sans navigation intégrée.
+  # Remplace mod_demo1_ui() par ton propre module.
+  # Si tu veux de la navigation, ajoute un navset_*() directement ici
+  # ou à l'intérieur de ton module.
+  tagList(
+    layout_controls,
+    page_fluid(
+      header,
+      mod_demo1_ui("demo1", tr)
+    )
   )
 }

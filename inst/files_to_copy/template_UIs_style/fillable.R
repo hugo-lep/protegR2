@@ -1,24 +1,48 @@
 print("protegR2_load_modules_UIs — style: fillable")
 
-# Ce fichier est copié dans R/ de ton projet par protegR2_init_layout("fillable").
-# C'est ici que tu branches tes propres modules Shiny.
-#
 # Style "fillable" : dashboard plein écran (page_fillable), chaque panel
 # s'étend pour remplir la hauteur disponible du navigateur.
 # Les onglets sont présentés dans des cards avec soulignement (navset_card_underline).
 # Adapté aux dashboards avec graphiques, cartes ou tableaux plein écran.
 #
-# Configuration (⚙) :
-#   Même mécanique que le style "fixed" : bouton engrenage flottant + modal.
-#   Voir le bloc commenté à la fin de ce fichier pour le code serveur.
+# Logout + sélecteur de langue :
+#   Intégrés dans un header flexbox en haut de la page.
+#   Le header prend sa hauteur naturelle — page_fillable() étire uniquement
+#   le navset_card_underline en dessous pour occuper le reste du viewport.
+#
+# Configuration (⚙) : Bouton flottant pour accéder au menu de configuration
 #
 # Convention obligatoire : id = "nav_tab" sur le navset_card_underline().
 
 protegR2_load_modules_UIs <- function(session, tr) {
 
-  selected <- isolate(getQueryString(session))$page
-  role     <- session$userData$user_info$user_role()
+  selected      <- isolate(getQueryString(session))$page %||% "home"
+  role          <- session$userData$user_info$user_role()
+  config_global <- session$userData$config_global
   req(role)
+
+  # ── CSS masquant les boutons fixes + bouton engrenage flottant ───────────
+  layout_controls <- protegr2_layout_controls(gear = TRUE)
+
+  # ── Dropdown de sélection de langue ──────────────────────────────────────
+  lang_dropdown <- protegr2_lang_dropdown(config_global, session$userData$idioma())
+
+  # ── Header : titre + langue + logout ──────────────────────────────────────
+  # Le header est un élément non-fillable — il prend sa hauteur naturelle.
+  # page_fillable() étire uniquement les éléments fillable (le navset ci-dessous).
+  header <- tags$div(
+    class = "d-flex justify-content-between align-items-center py-2 mb-3 border-bottom",
+    tags$span("Titre de l'application", class = "h5 mb-0"),
+    tags$div(
+      class = "d-flex gap-2 align-items-center",
+      lang_dropdown,
+      actionButton(
+        inputId = "logout",
+        label   = tagList(icon("right-from-bracket"), " ", tr("logout")),
+        class   = "btn btn-outline-secondary btn-sm"
+      )
+    )
+  )
 
   # ── Panneaux principaux (sans configuration — celle-ci est dans le modal) ──
 
@@ -27,7 +51,7 @@ protegR2_load_modules_UIs <- function(session, tr) {
     nav_panel(title = tr("menu1_sidebar_type_access"),
               value = "home",
               icon  = icon("house"),
-              mod_demo2_ui("demo2", session = session)),
+              mod_fillable_ui("fillable_demo")),
 
     nav_panel(title = tr("menu2_module_demo"),
               value = "demo",
@@ -42,30 +66,15 @@ protegR2_load_modules_UIs <- function(session, tr) {
 
   )
 
-  # ── Bouton engrenage flottant ──────────────────────────────────────────────
-  # Même logique que le style "fixed". z-index 9997 : sous logout (9998).
-  gear_button <- tags$div(
-    style = "position: fixed; bottom: 24px; right: 24px; z-index: 9997;",
-    actionButton(
-      inputId = "open_config_modal",
-      label   = NULL,
-      icon    = icon("gear"),
-      class   = "btn btn-secondary",
-      style   = "border-radius: 50%; width: 46px; height: 46px; padding: 0;",
-      title   = "Configuration"
-    )
-  )
-
   # ── Rendu : page_fillable + navset_card_underline ─────────────────────────
   # page_fillable() étire chaque panel pour occuper toute la hauteur viewport.
   # navset_card_underline() : onglets dans une card avec soulignement de l'actif.
-  # fillable = TRUE sur navset_card_underline : le contenu de chaque panel
-  # s'étire aussi pour remplir la card — idéal pour les graphiques plein écran.
   tagList(
-    gear_button,
+    layout_controls,
     page_fillable(
+      header,
       do.call(navset_card_underline, c(
-        list(id = "nav_tab", selected = selected, fillable = TRUE),
+        list(id = "nav_tab", selected = selected),
         panels
       ))
     )

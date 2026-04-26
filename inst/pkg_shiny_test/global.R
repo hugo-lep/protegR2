@@ -71,7 +71,7 @@ library(bslib)        # layouts Bootstrap 5 (page_fluid, navset_*, etc.)
 #   "navbar"   → page_navbar()      — barre horizontale en haut
 #   "fixed"    → page_fixed() + navset_tab() + engrenage flottant
 #   "fillable" → page_fillable() + navset_card_underline() + engrenage flottant
-style <- "fluid"
+style <- "sidebar"
 
 
 # ── Étape 4 : Sourcer les fichiers template ────────────────────────────────────
@@ -135,14 +135,33 @@ pool <- pool::dbPool(
   drv      = RPostgres::Postgres(),
   dbname   = "stocktools",
   host     = "localhost",
-  port     = 5433,
+  port     = 5432,
   user     = config_global$DB_credential$user,
   password = config_global$DB_credential$password,
   minSize = 2,   # connexions maintenues en permanence
   maxSize = 10   # plafond selon tes max_connections Postgres
 )
 
-# ── Étape 7 : Paramètre de layout ──────────────────────────────────────────────
+# ── Étape 7 : Overrides locaux de config_global ───────────────────────────────
+#
+# Surcharge les valeurs lues depuis S3 sans modifier le fichier S3.
+#
+# show_idioma : TRUE  → sélecteur de langue visible (login + app)
+#               FALSE → sélecteur de langue masqué partout
+config_global$show_idioma <- TRUE
+
+# supported_idiomas : langues disponibles dans le sélecteur de langue.
+# Chaque entrée est une liste avec :
+#   mini_label → affiché sur le bouton (ex. "FR")
+#   label      → affiché dans le menu déroulant (ex. "Français")
+# Pour retirer une langue, supprimer simplement son entrée.
+config_global$supported_idiomas <- list(
+  fr = list(mini_label = "FR", label = "Français"),
+  en = list(mini_label = "EN", label = "English")#,
+#  es = list(mini_label = "ES", label = "Español")
+)
+
+# ── Étape 8 : Paramètre de layout ──────────────────────────────────────────────
 #
 # style est défini à l'étape 3 — il détermine le template sourcé et transmis
 # à protegR2_ui() via server.R. Changer la valeur à l'étape 3 suffit.

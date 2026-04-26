@@ -68,3 +68,23 @@ con <- dbConnect(
 #onStop(function() pool::poolClose(pool))
 
 config_global <- s3readRDS_HL(object = "config_files/config_global.rds")
+
+# ── Overrides locaux de config_global ─────────────────────────────────────
+# Ces lignes permettent de surcharger les valeurs lues depuis S3 sans modifier
+# le fichier S3. Pratique pour tester localement des options avant de les
+# pousser définitivement via protegR2_init_config_global().
+#
+# show_idioma : TRUE  → sélecteur de langue visible (login + app)
+#               FALSE → sélecteur de langue masqué partout
+config_global$show_idioma <- TRUE
+
+# supported_idiomas : langues disponibles dans le sélecteur de langue.
+# Chaque entrée est une liste avec :
+#   mini_label → affiché sur le bouton (ex. "FR")
+#   label      → affiché dans le menu déroulant (ex. "Français")
+# Pour retirer une langue, supprimer simplement son entrée.
+config_global$supported_idiomas <- list(
+  fr = list(mini_label = "FR", label = "Français"),
+  en = list(mini_label = "EN", label = "English"),
+  es = list(mini_label = "ES", label = "Español")
+)

@@ -157,6 +157,23 @@ Bslib gère ce changement de structure sans conflits CSS car chaque état est un
 - Zéro configuration pour les projets qui n'en veulent pas
 - Permet de tracker : pages visitées, durée de session, origine des utilisateurs, événements personnalisés
 
+### Template `bslibHL` (dépendance externe — package à créer)
+- **Nouveau package `bslibHL`** : package maison de composants bslib personnalisés (même logique que `s3db` vis-à-vis de `aws.s3`). Ne remplace pas bslib — coexiste avec lui.
+- **`hl_page()`** : layout dashboard avec sidebar de navigation multi-pages. Résout la limitation de `page_sidebar()` de bslib qui ne gère pas nativement la navigation entre pages. API envisagée :
+  ```r
+  hl_page(
+    sidebar = hl_sidebar(
+      hl_menu_item("Accueil",    value = "home",    icon = icon("house")),
+      hl_menu_item("Finance",    value = "finance", icon = icon("chart-line")),
+      hl_menu_item("Paramètres", value = "config",  icon = icon("gear"))
+    ),
+    hl_panel(value = "home",    ...),
+    hl_panel(value = "finance", ...),
+    hl_panel(value = "config",  ...)
+  )
+  ```
+- **6e template `protegR2`** : `inst/files_to_copy/template_UIs_style/hl_sidebar.R` — utilise `hl_page()` à la place du bricolage actuel (double navset + observateur de sync). À créer une fois `bslibHL` disponible.
+
 ### Améliorations à réévaluer plus tard
 - **Couche d'abstraction de stockage** (`storage_read()`, `storage_write()`, etc.) : permettrait de supporter d'autres backends que S3 (SQLite, PostgreSQL) sans modifier le reste du code. Non prioritaire — `protegR2` est un package personnel qui restera sur S3.
 

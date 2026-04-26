@@ -32,7 +32,7 @@ print("protegR2_ui")
 #' @param idioma \code{TRUE} pour afficher le selecteur de langue
 #'
 #' @importFrom bslib bs_theme page_fluid
-#' @importFrom shiny uiOutput tags div selectInput HTML
+#' @importFrom shiny uiOutput tags div selectInput HTML bootstrapLib
 #' @importFrom shinyjs useShinyjs
 #' @importFrom cookies add_cookie_handlers
 #' @importFrom rlang %||%
@@ -78,16 +78,29 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
   # la UI pour intercepter les cookies du navigateur et les rendre accessibles
   # côté serveur via input$cookies. Indispensable pour l'auto-login.
   #
-  # page_fluid() est choisi comme conteneur universel parce que :
-  #   1. Il est compatible avec tous les composants bslib (navset_*, sidebar, etc.)
-  #   2. Il n'impose aucune structure — le serveur décide du layout via uiOutput()
-  #   3. La page de login et la page app peuvent avoir des layouts completement différents
-  #      sans conflit CSS (problème qui existait avec shinydashboard)
+  # tagList() remplace l'ancien page_fluid() comme conteneur externe.
+  # Pourquoi ce changement :
+  #   page_fluid() imposait un div.container-fluid autour du uiOutput("main_ui"),
+  #   ce qui créait un page_* imbriqué dans un autre page_* quand le template
+  #   retournait page_sidebar(), page_fillable(), etc. — layout cassé pour
+  #   les styles plein écran (fillable notamment).
+  #
+  # tagList() est un conteneur neutre — il n'ajoute aucun div dans le DOM.
+  # Le theme (bs_theme) est une dépendance HTML : bslib l'injecte directement
+  # dans <head> qu'il soit dans un page_* ou un tagList(). Les templates
+  # gardent donc leur propre page_* au niveau racine, sans wrapper parasite.
+  #
+  # Les autres éléments d'infrastructure (useShinyjs, tags$head, sélecteur
+  # de langue) restent ici — ils n'ont pas leur place dans les templates.
 
   add_cookie_handlers(
-    page_fluid(
-      theme = theme,
-      useShinyjs(),   #active fonction javascript (toogle,hide,show), doit être appeler 1x dans ui
+    tagList(
+      # bootstrapLib() convertit le bs_theme en dépendances HTML (CSS/JS)
+      # injectables dans <head> sans imposer de structure de page.
+      # C'est ce que page_fluid(theme=) fait en interne — on l'appelle
+      # directement ici pour éviter le div.container-fluid qu'il ajouterait.
+      bootstrapLib(theme),
+      useShinyjs(),   # active les fonctions JS (toggle, hide, show) — doit être appelé 1x dans ui
 
       tags$head(
 
@@ -128,11 +141,13 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
       ),
 
       # ── Sélecteur de langue (optionnel) ──────────────────────────────────────
-      # Affiché uniquement si idioma = TRUE dans ui.R.
-      # position: fixed le maintient visible en haut à droite même en scrollant.
-      # z-index élevé pour qu'il passe au-dessus de tous les autres éléments.
-      if (idioma) {
+      # Affiché uniquement si config_global$show_idioma est TRUE (défaut : TRUE).
+      # Visible sur la page de login ET dans l'app — les templates masquent
+      # la version fixe (.protegr2-idioma-fixed) et proposent leur propre
+      # dropdown intégré à leur layout quand show_idioma est TRUE.
+      if (config_global$show_idioma %||% TRUE) {
         div(
+          class = "protegr2-idioma-fixed",
           style = "position: fixed; top: 10px; right: 15px; z-index: 9999; width: 110px;",
           selectInput(
             inputId  = "select_idioma",
@@ -596,6 +611,7 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
       tagList(
 
         div(
+          class = "protegr2-logout-fixed",
           style = "position: fixed; top: 10px; right: 140px; z-index: 9998;",
           actionButton(
             "logout",
