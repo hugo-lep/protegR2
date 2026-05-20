@@ -171,11 +171,28 @@ mod_config_ui4 <- function(id) {
     navbarPage(
       "Dev menu:",
       tabPanel("DEV access",
-               h3("contrôler les accès à DEV"),
-               selectInput(ns("dev_select_user"), "Select a User", choices = NULL),
-               selectInput(ns("dev_select_role"), "User rôle",
-                           selected = NULL, choices = c("user", "admin", "super_admin", "dev", "public")),
-               actionButton(ns("save_dev"), "Save user role")),
+
+               # ── Changement de rôle ──────────────────────────────────────────────────
+               # Sélectionner un utilisateur charge son rôle ET son flag dev_access.
+               h3("Rôle utilisateur"),
+               selectInput(ns("dev_select_user"), "Sélectionner un utilisateur", choices = NULL),
+               selectInput(ns("dev_select_role"), "Rôle",
+                           selected = NULL,
+                           choices  = c("user", "admin", "super_admin", "dev")),
+               actionButton(ns("save_dev_role"), "Enregistrer le rôle"),
+
+               tags$hr(),
+
+               # ── Accès version dev ───────────────────────────────────────────────────
+               # dev_access = TRUE permet à un utilisateur d'accéder aux URLs restreintes
+               # (ex. pascan-dev.avnumbers.ca) sans changer son rôle.
+               # Le rôle "dev" a toujours accès, indépendamment de ce flag.
+               # Utile pour inviter un "user" à tester une nouvelle fonctionnalité.
+               h3("Accès version dev"),
+               checkboxInput(ns("dev_access"),
+                             label = "Autoriser l'accès aux URLs restreintes (version dev)",
+                             value = FALSE),
+               actionButton(ns("save_dev_access"), "Enregistrer l'accès dev")),
       navbarMenu(
         "utilité DEV",
         tabPanel(
@@ -237,7 +254,8 @@ mod_config_ui4 <- function(id) {
 
 # SERVER ---------------------------------------------------------------------
 utils::globalVariables(c(
-  "username", "userID", "role", "active", "inactivity_delay", "expire_date", "token_value"
+  "username", "userID", "role", "active", "inactivity_delay", "expire_date", "token_value",
+  "dev_access"
 ))
 #' Section serveur servant du différents UI de configuration
 #'
@@ -500,25 +518,75 @@ mod_config_server <- function(id,
 
     # * ------ DEV server ---------------------------------------------------------
 
+    # Peuple la liste d'utilisateurs quand le menu est ouvert.
+    # On inclut tous les utilisateurs (pas seulement "user") car le dev
+    # peut changer le rôle de n'importe qui.
     observeEvent(input$admin_menu, {
       updateSelectInput(session, "dev_select_user", choices = all_users() %>% pull(username))
     })
 
-    dev_selected_user <- reactive({
+    # Charge les données de l'utilisateur sélectionné depuis S3.
+    # eventReactive plutôt que reactive : on lit S3 seulement quand l'utilisateur
+    # change sa sélection, pas à chaque changement de reactive dans le module.
+    dev_selected_user <- eventReactive(input$dev_select_user, {
       s3readRDS_HL("config_files/users_auth.rds") %>%
         filter(username == input$dev_select_user)
     })
 
+    # Quand un utilisateur est sélectionné, on charge son rôle ET son flag dev_access.
+    # isTRUE() + %||% FALSE : si la colonne dev_access n'existe pas dans un ancien
+    # fichier users_auth.rds, on affiche FALSE par défaut sans erreur.
     observeEvent(input$dev_select_user, {
-      updateSelectInput(session, "dev_select_role", selected = (dev_selected_user() %>% pull(role)))
+      user <- dev_selected_user()
+      req(nrow(user) == 1)
+
+      updateSelectInput(session,  "dev_select_role", selected = user$role)
+      updateCheckboxInput(session, "dev_access",
+                          value = isTRUE(user$dev_access %||% FALSE))
     })
 
-    observeEvent(input$save_dev, {
-      user_auth_db <- s3readRDS_HL("config_files/users_auth.rds") %>%
-        mutate(role = if_else(username == input$dev_select_user, input$dev_select_role, role)) %>%
-        s3saveRDS_HL(object_name = "config_files/users_auth.rds")
+    # Sauvegarde du rôle uniquement.
+    # Séparé de dev_access intentionnellement : changer un rôle est plus impactant
+    # (accès permanent aux modules admin/super_admin) — un bouton dédié évite
+    # de le modifier accidentellement en même temps que dev_access.
+    observeEvent(input$save_dev_role, {
+      req(input$dev_select_user)
 
-      showNotification("Rôle de l'utilisateur enregistré avec succès", type = "message")
+      user_auth_db <- s3readRDS_HL("config_files/users_auth.rds") %>%
+        mutate(role = if_else(username == input$dev_select_user,
+                              input$dev_select_role,
+                              role))
+
+      s3saveRDS_HL(user_auth_db, object_name = "config_files/users_auth.rds")
+      showNotification("Rôle enregistré avec succès.", type = "message")
+    })
+
+    # Sauvegarde du flag dev_access uniquement.
+    # Si la colonne dev_access n'existe pas encore dans le fichier S3 (migration),
+    # mutate() l'ajoute automatiquement pour tous les utilisateurs avec FALSE,
+    # puis met TRUE/FALSE pour l'utilisateur sélectionné.
+    observeEvent(input$save_dev_access, {
+      req(input$dev_select_user)
+
+      user_auth_db <- s3readRDS_HL("config_files/users_auth.rds")
+
+      # Ajoute la colonne si absente (compatibilité avec anciens fichiers S3)
+      if (!"dev_access" %in% colnames(user_auth_db)) {
+        user_auth_db$dev_access <- FALSE
+      }
+
+      user_auth_db <- user_auth_db %>%
+        mutate(dev_access = if_else(username == input$dev_select_user,
+                                    isTRUE(input$dev_access),
+                                    dev_access))
+
+      s3saveRDS_HL(user_auth_db, object_name = "config_files/users_auth.rds")
+
+      action <- if (isTRUE(input$dev_access)) "activé" else "retiré"
+      showNotification(
+        paste0("Accès dev ", action, " pour ", input$dev_select_user, "."),
+        type = "message"
+      )
     })
 
     output$cookie_name <- renderText(paste("Nom du cookie:", session$userData$config_global$cookie_name))
