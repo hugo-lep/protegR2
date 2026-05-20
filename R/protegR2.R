@@ -229,6 +229,52 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
     list(count = new_count, locked_until = locked_until)
   }
 
+  # ── Fonction helper locale : vérification d'accès au host restreint ─────────
+  #
+  # Certains hosts (ex. URLs de staging ou de dev) nécessitent que l'utilisateur
+  # ait dev_access = TRUE dans son profil. Le rôle "dev" passe toujours.
+  #
+  # La liste des hosts restreints vient de config_global$protegR2$security$restricted_hosts.
+  # Si NULL ou vide, l'accès est libre (comportement par défaut, aucun host restreint).
+  #
+  # En développement local, override_host permet de simuler un host restreint sans
+  # déployer — il se décommente dans global.R du projet (jamais ici ni sur S3).
+  #
+  # Retourne TRUE si l'accès est accordé.
+  # Retourne FALSE et affiche une alerte si l'accès est refusé.
+  # Dans les deux cas, la session reste à l'état pré-login — c'est l'appelant
+  # qui décide de continuer ou de return(NULL).
+  check_host_access <- function(valid_user) {
+
+    restricted <- config_global$protegR2$security$restricted_hosts
+
+    # Aucun host restreint configuré → accès libre pour tous
+    if (is.null(restricted) || length(restricted) == 0) return(TRUE)
+
+    # Host actuel : valeur de test locale (override_host) ou URL réelle du navigateur
+    current_host <- config_global$protegR2$security$override_host %||%
+                    session$clientData$url_hostname
+
+    # Host non restreint → accès libre
+    if (!current_host %in% restricted) return(TRUE)
+
+    # Host restreint : "dev" passe toujours (implicite), les autres ont besoin du flag
+    # isTRUE() gère proprement le cas où la colonne dev_access est absente du .rds
+    # (utilisateurs créés avant l'ajout de la colonne) — NULL et NA deviennent FALSE.
+    if (valid_user$role == "dev" || isTRUE(valid_user$dev_access)) return(TRUE)
+
+    # Accès refusé — on affiche un message clair et on arrête ici
+    sendSweetAlert(
+      session,
+      title = tr("access_denied")       %||% "Accès refusé",
+      text  = tr("dev_access_required") %||%
+              paste0("Votre compte n'est pas autorisé à accéder",
+                     " à cette version de l'application."),
+      type  = "error"
+    )
+    FALSE
+  }
+
   # ── Initialisation de session ──────────────────────────────────────────────
   #
   # session$userData est un environnement R vide créé automatiquement par Shiny
@@ -448,7 +494,12 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
       return(NULL)
     }
 
-    # ── 8. Login réussi — toutes les vérifications ont passé ──────────────
+    # ── 8. Vérification d'accès au host restreint ──────────────────────────
+    # Doit être après bcrypt (on ne révèle pas pourquoi on refuse si le mdp
+    # est mauvais) et avant user_auth() (on n'ouvre pas la session si refusé).
+    if (!check_host_access(valid_user)) return(NULL)
+
+    # ── 9. Login réussi — toutes les vérifications ont passé ──────────────
     # Réinitialisation du compteur d'échecs (nouveau départ propre).
     login_failures(list(count = 0, locked_until = NULL))
 
@@ -541,7 +592,13 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
         # informations à jour (rôle, actif, expiration) — pas de cache ici.
         valid_user_df <- s3readRDS_HL(object = "config_files/users_auth.rds") %>%
           filter(username == S3_save_cookie_valid[[1, "username"]])
-        valid_user        <- as.list(valid_user_df)
+        valid_user <- as.list(valid_user_df)
+
+        # Même vérification d'accès qu'au login manuel.
+        # Si l'utilisateur n'a plus dev_access (flag retiré par le dev pendant
+        # une session active), il sera bloqué au prochain auto-login (refresh).
+        if (!check_host_access(valid_user)) return(invisible(NULL))
+
         session$user      <- valid_user$username
         sessions[[session$token]] <- list(session = session, valid_user_df = valid_user_df)
 

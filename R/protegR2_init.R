@@ -131,7 +131,9 @@ protegR2_init_project <- function(background = FALSE, app = FALSE, R_files = FAL
 #' \code{R/} of the current project. Run once at project setup.
 #'
 #' @param style Layout style: \code{"sidebar"}, \code{"fluid"}, \code{"navbar"},
-#'   \code{"fixed"}, or \code{"fillable"}.
+#'   \code{"fixed"}, \code{"fillable"}, or \code{"sidebarHL"}.
+#'   \code{"sidebarHL"} requires the \pkg{bslibHL} package and uses
+#'   \code{page_sidebarHL()} for multi-page sidebar navigation.
 #'
 #' @return Nothing. The file is copied into \code{R/} of the current project.
 #' @export
@@ -139,8 +141,9 @@ protegR2_init_project <- function(background = FALSE, app = FALSE, R_files = FAL
 #' @examples
 #' if (interactive()) {
 #'   protegR2_init_layout("sidebar")
+#'   protegR2_init_layout("sidebarHL")
 #' }
-protegR2_init_layout <- function(style = c("sidebar", "fluid", "navbar", "fixed", "fillable")) {
+protegR2_init_layout <- function(style = c("sidebar", "fluid", "navbar", "fixed", "fillable", "sidebarHL")) {
   style <- match.arg(style)
 
   source_dir <- system.file("files_to_copy/template_UIs_style", package = "protegR2")
@@ -183,18 +186,22 @@ protegR2_init_record_s3_users_auth_file <- function() {
   s3_connection_HL()
 
   user_access <- data.frame(
-    userID = 1:5,
-    username = c("user1", "user2", "admin", "super_admin", "dev"),
-    hash_password = c(password_store("pass1"),
-                      password_store("pass2"),
-                      password_store("pass3"),
-                      password_store("pass4"),
-                      password_store("pass5")),
-    role = c("user", "user", "admin", "super_admin", "dev"),
-    created_by = rep("protegR2_init", 5),
+    userID           = 1:5,
+    username         = c("user1", "user2", "admin", "super_admin", "dev"),
+    hash_password    = c(password_store("pass1"),
+                         password_store("pass2"),
+                         password_store("pass3"),
+                         password_store("pass4"),
+                         password_store("pass5")),
+    role             = c("user", "user", "admin", "super_admin", "dev"),
+    created_by       = rep("protegR2_init", 5),
     inactivity_delay = rep(5, 5),
-    active = TRUE,
-    expire_date = today() + c(7, 8, 9, 10, NA),
+    active           = TRUE,
+    expire_date      = today() + c(7, 8, 9, 10, NA),
+    # dev_access : autorise l'acces aux URLs restreintes (restricted_hosts dans config_global).
+    # Le role "dev" passe toujours, meme si FALSE — ce flag sert pour les autres roles.
+    # Mettre TRUE pour permettre a un utilisateur de tester une version dev/staging.
+    dev_access       = c(FALSE, FALSE, FALSE, FALSE, TRUE),
     stringsAsFactors = FALSE
   )
 

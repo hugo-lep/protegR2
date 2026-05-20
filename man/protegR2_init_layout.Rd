@@ -5,12 +5,14 @@
 \title{Copy a layout template into the project}
 \usage{
 protegR2_init_layout(
-  style = c("sidebar", "fluid", "navbar", "fixed", "fillable")
+  style = c("sidebar", "fluid", "navbar", "fixed", "fillable", "sidebarHL")
 )
 }
 \arguments{
 \item{style}{Layout style: \code{"sidebar"}, \code{"fluid"}, \code{"navbar"},
-\code{"fixed"}, or \code{"fillable"}.}
+\code{"fixed"}, \code{"fillable"}, or \code{"sidebarHL"}.
+\code{"sidebarHL"} requires the \pkg{bslibHL} package and uses
+\code{page_sidebarHL()} for multi-page sidebar navigation.}
 }
 \value{
 Nothing. The file is copied into \code{R/} of the current project.
@@ -22,5 +24,6 @@ Copies \code{protegR2_load_modules_UIs.R} for the chosen style into
 \examples{
 if (interactive()) {
   protegR2_init_layout("sidebar")
+  protegR2_init_layout("sidebarHL")
 }
 }

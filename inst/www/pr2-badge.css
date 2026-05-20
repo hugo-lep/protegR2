@@ -1,0 +1,64 @@
+/* ── Badge button ──────────────────────────────────────────── */
+
+.pr2-badge-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.pr2-header-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.1rem;
+  padding: 0.3rem 0.45rem;
+  cursor: pointer;
+  opacity: 0.82;
+  transition: opacity 0.15s;
+  line-height: 1;
+  border-radius: 0.3rem;
+}
+
+.pr2-header-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pr2-badge {
+  position: absolute;
+  top: 1px;
+  right: -3px;
+  background-color: var(--pr2-badge-bg, #e74c3c);
+  color: #fff;
+  border-radius: 50%;
+  padding: 2px 5px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 16px;
+  text-align: center;
+  pointer-events: none;
+  animation: pr2-pulse 1.4s infinite ease-in-out;
+}
+
+@keyframes pr2-pulse {
+  0%   { transform: scale(1);    opacity: 1;    }
+  50%  { transform: scale(1.25); opacity: 0.78; }
+  100% { transform: scale(1);    opacity: 1;    }
+}
+
+/* ── Dropdown panel ────────────────────────────────────────── */
+
+.pr2-dropdown-panel {
+  position: fixed;
+  top: 56px;
+  background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, #212529);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.45rem;
+  padding: 1rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1055;
+  overflow-y: auto;
+  max-height: 420px;
+}

@@ -21,8 +21,8 @@ library(here)
 # La plupart des fichiers sont inclus dans le package protegR2
 # Mais certains fichiers devront être modifier en fonction de chaque application à construire.
 # Ce sont ces fichiers "à modifier" qui sont copier dans le projet
-protegR2_copy_files(background = TRUE, app = TRUE, R_files = TRUE)
-protegR2_copy_files(app = TRUE, R_files = TRUE)
+protegR2_init_project(background = TRUE, app = TRUE, R_files = TRUE)
+protegR2_init_layout("fluid")
 
 # Packages CRAN
 renv::install(c("here","shiny","tidyr","purrr","readr",
@@ -78,12 +78,73 @@ protegR2_init_record_s3_users_auth_file_default()
 
 # Enregistrer sur S3 le fichier qui servira à conserver toutes les informations globales à toutes les sessions
 # de cette application, en commençant par le nom du cookie qui sera utiliser.
-protegR2_init_config_global(name = "cookie_name", value = "test")
-protegR2_init_config_global(name = "dashboard_skin", value =  "red")
-# option:c("blue", "black", "purple", "green", "red", "yellow"))
-protegR2_init_config_global(name = "cookie_update_time", value =  45)
-protegR2_init_config_global(name = "idioma", value =  "en")
-protegR2_init_config_global(name = "header_title", value =  "protegR2 demo")
+
+config_global <- list(
+
+  protegR2 = list(
+
+    # ── Connexion & cookie ──────────────────────────────────────────────────
+    dns         = "https://mon-app.example.com",  # URL publique — utilisée pour fetch_client_ip()
+    cookie_name = "test",                          # nom du cookie navigateur
+
+    # ── Langue ──────────────────────────────────────────────────────────────
+    lang_choice  = TRUE,
+    lang_options = list(
+      fr = list(mini_label = "FR", label = "Français"),
+      en = list(mini_label = "EN", label = "English"),
+      es = list(mini_label = "ES", label = "Español")
+    ),
+    lang_default = "en",
+
+    # ── Interface ───────────────────────────────────────────────────────────
+    header_title = "protegR_demo",
+    theme = list(
+      bootswatch = "darkly",
+      primary    = "#3c8dbc"
+    ),
+    ga_id = NULL,   # Google Analytics ID (ex: "G-XXXXXXXXXX"), NULL = désactivé
+
+    # ── Sécurité ────────────────────────────────────────────────────────────
+    security = list(
+      token_check_interval_s = 45,      # vérification token S3 toutes les N secondes
+      cookie_throttle_ms     = 240000,  # throttle refresh cookie (4 minutes)
+      max_login_attempts     = 5,       # tentatives avant verrou temporaire
+      lockout_duration_s     = 30,      # durée du verrou en secondes
+
+      # Hosts dont l'accès est restreint aux utilisateurs avec dev_access = TRUE
+      # (le rôle "dev" passe toujours, indépendamment de ce flag).
+      # Laisser NULL ou vecteur vide pour désactiver la restriction.
+      # Ex: c("mon-app-dev.example.com", "staging.example.com")
+      restricted_hosts = NULL,
+
+      # Utilisé en développement local UNIQUEMENT pour simuler un host restreint.
+      # Décommenter dans global.R du projet pour tester sans déployer.
+      # Ne jamais mettre une valeur ici — la surcharge se fait dans global.R.
+      override_host = NULL
+    ),
+
+    # ── Page de login ───────────────────────────────────────────────────────
+    login = list(
+      background_img = "/images/background.png",  # chemin relatif Shiny (inst/app/www/)
+      welcome_text   = NULL,                       # texte optionnel sous le titre
+      logo_url       = NULL,                       # logo optionnel au-dessus du formulaire
+      card_width_px  = 420                         # largeur max de la card de login (px)
+    )
+  )
+
+  # ── Autres packages ─────────────────────────────────────────────────────────
+  # Ajouter ici les configs spécifiques à chaque package utilisé dans le projet.
+  # Ex:
+  # ,
+  # mon_package = list(
+  #   api_key = "...",
+  #   option  = TRUE
+  # )
+)
+
+# Enregistrement sur S3 — une seule écriture pour tout le config_global
+s3saveRDS_HL(config_global, object_name = "config_files/config_global.rds")
+message("✅ config_global enregistré sur S3.")
 
 # si Git n'est pas déjà installé sur EC2
 # sudo apt update

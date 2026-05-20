@@ -38,6 +38,20 @@ i18n_db <- list(
     es = "Demasiados intentos fallidos. Espere %d segundo(s)."
   ),
 
+  # ── Accès restreint (host dev/staging) ────────────────────────────────────
+  # Utilisées par check_host_access() dans protegR2_server() quand un utilisateur
+  # tente d'accéder à un host restreint sans avoir dev_access = TRUE.
+  access_denied = list(
+    fr = "Accès refusé",
+    en = "Access denied",
+    es = "Acceso denegado"
+  ),
+  dev_access_required = list(
+    fr = "Votre compte n'est pas autorisé à accéder à cette version de l'application.",
+    en = "Your account is not authorized to access this version of the application.",
+    es = "Su cuenta no está autorizada para acceder a esta versión de la aplicación."
+  ),
+
   # ── Accès principal ─────────────────────────────────────────────────────────
   bienvenue = list(fr = "Bienvenue",    en = "Welcome",      es = "Bienvenido"),
   logout    = list(fr = "Déconnexion",  en = "Logout",       es = "Cerrar sesión"),

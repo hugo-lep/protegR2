@@ -37,42 +37,22 @@ protegR2_load_modules_servers <- function(sessions,
                     input_main_app = input_main_app,
                     main_session   = main_session)
 
-  # ── Synchronisation nav sidebar ────────────────────────────────────────────
+  # ── Modal de configuration — styles "sidebar", "fluid", "fixed", "fillable" ──
   #
-  # Uniquement actif pour le style "sidebar" (page_sidebar + navset_pill +
-  # navset_hidden). Pour les autres styles (navbar, fixed, fillable), l'élément
-  # "nav_content" n'existe pas côté client — nav_select() envoie un message qui
-  # est simplement ignoré, sans erreur.
+  # ⚠️  SUPPRIMER CE BLOC uniquement si ton style est "navbar".
+  #     Le style "navbar" intègre la configuration dans un nav_menu() et
+  #     n'utilise pas le bouton engrenage flottant (gear = FALSE).
   #
-  # Pourquoi deux navsets dans le style sidebar ?
-  #   page_sidebar() ne "split" pas automatiquement nav et contenu.
-  #   On utilise navset_pill(id = "nav_tab") dans le sidebar pour afficher les
-  #   onglets (sans contenu), et navset_hidden(id = "nav_content") en zone
-  #   principale pour afficher le contenu. Cet observateur synchronise les deux :
-  #   quand l'utilisateur clique un pill → input_main_app$nav_tab change →
-  #   on sélectionne le même panel dans nav_content.
+  #     Pour TOUS les autres styles (sidebar, fluid, fixed, fillable),
+  #     garder ce bloc — il gère le clic sur le bouton ⚙ (gear = TRUE).
   #
-  # ignoreNULL = TRUE : évite un déclenchement au démarrage quand nav_tab
-  # vaut NULL (avant que l'UI ne soit rendue).
-
-  observeEvent(input_main_app$nav_tab, {
-    nav_select("nav_content", input_main_app$nav_tab, session = main_session)
-  }, ignoreNULL = TRUE)
-
-
-  # ── Modal de configuration — styles "fixed" et "fillable" uniquement ────────
-  #
-  # ⚠️  SUPPRIMER CE BLOC si ton style est "sidebar", "navbar" ou "fluid".
-  #     Ces styles intègrent la configuration directement dans le navset.
-  #     Ce bloc n'a d'effet que si le template UI contient un bouton engrenage
-  #     avec inputId = "open_config_modal".
-  #
-  # Pourquoi un modal plutôt qu'un onglet dans le navset ?
-  #   page_fixed() et page_fillable() ont une zone de navigation limitée.
-  #   Plutôt que d'encombrer le navset principal avec les onglets de config,
-  #   on les isole dans un modal accessible via un bouton engrenage flottant
-  #   (bas droite). Le modal est reconstruit à chaque ouverture selon le rôle
-  #   de l'utilisateur — il ne montre que les onglets auxquels il a accès.
+  # Pourquoi un modal plutôt qu'un onglet dans la navigation principale ?
+  #   Les styles sidebar/fluid/fixed/fillable n'ont pas de zone dédiée pour
+  #   la configuration dans leur structure de navigation. Plutôt que d'ajouter
+  #   des onglets de config au navset principal, on les isole dans un modal
+  #   accessible via le bouton engrenage flottant (bas droite, inputId =
+  #   "open_config_modal"). Le modal est reconstruit à chaque ouverture selon
+  #   le rôle de l'utilisateur — il ne montre que les onglets accessibles.
 
   observeEvent(input_main_app$open_config_modal, {
     role <- main_session$userData$user_info$user_role()
