@@ -47,26 +47,26 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
   # Les valeurs viennent de config_global si elles sont définies,
   # sinon on utilise les valeurs par défaut avec %||% (opérateur "ou si NULL").
   theme <- bs_theme(
-    bootswatch = config_global$bootswatch %||% "darkly",
-    primary    = config_global$primary_color %||% "#3c8dbc"
+    bootswatch = config_global$protegR2$theme$bootswatch %||% "darkly",
+    primary    = config_global$protegR2$theme$primary    %||% "#3c8dbc"
   )
 
   # ── Google Analytics (optionnel) ─────────────────────────────────────────────
-  # Si config_global$ga_id est défini (ex. "G-XXXXXXXXXX"), on injecte
+  # Si config_global$protegR2$ga_id est défini (ex. "G-XXXXXXXXXX"), on injecte
   # automatiquement le script GA4 dans le <head>. Sinon, ga_script vaut NULL
   # et Shiny ignore simplement un élément NULL dans la UI.
-  ga_script <- if (!is.null(config_global$ga_id)) {
+  ga_script <- if (!is.null(config_global$protegR2$ga_id)) {
     tagList(
       # Chargement asynchrone du script GA — "async = NA" produit <script async>
       tags$script(
         async = NA,
-        src   = paste0("https://www.googletagmanager.com/gtag/js?id=", config_global$ga_id)
+        src   = paste0("https://www.googletagmanager.com/gtag/js?id=", config_global$protegR2$ga_id)
       ),
       tags$script(HTML(paste0(
         "window.dataLayer = window.dataLayer || [];
          function gtag(){dataLayer.push(arguments);}
          gtag('js', new Date());
-         gtag('config', '", config_global$ga_id, "');"
+         gtag('config', '", config_global$protegR2$ga_id, "');"
       )))
     )
   } else {
@@ -141,19 +141,28 @@ protegR2_ui <- function(config_global, style = "sidebar", idioma = TRUE) {
       ),
 
       # ── Sélecteur de langue (optionnel) ──────────────────────────────────────
-      # Affiché uniquement si config_global$show_idioma est TRUE (défaut : TRUE).
+      # Affiché uniquement si config_global$protegR2$lang_choice est TRUE (défaut : TRUE).
       # Visible sur la page de login ET dans l'app — les templates masquent
       # la version fixe (.protegr2-idioma-fixed) et proposent leur propre
       # dropdown intégré à leur layout quand show_idioma est TRUE.
-      if (config_global$show_idioma %||% TRUE) {
+      if (config_global$protegR2$lang_choice %||% TRUE) {
+        # Construire les choices depuis lang_options (liste nommée code → list(mini_label, label))
+        # Si lang_options est absent (config non migrée), fallback vers les 3 langues par défaut.
+        lang_opts <- config_global$protegR2$lang_options %||% list(
+          fr = list(mini_label = "FR", label = "Français"),
+          en = list(mini_label = "EN", label = "English"),
+          es = list(mini_label = "ES", label = "Español")
+        )
+        lang_choices <- stats::setNames(names(lang_opts),
+                                        sapply(lang_opts, `[[`, "label"))
         div(
           class = "protegr2-idioma-fixed",
           style = "position: fixed; top: 10px; right: 15px; z-index: 9999; width: 110px;",
           selectInput(
             inputId  = "select_idioma",
             label    = NULL,
-            choices  = c("Français" = "fr", "English" = "en", "Español" = "es"),
-            selected = config_global$idioma %||% "fr",
+            choices  = lang_choices,
+            selected = config_global$protegR2$lang_default %||% "fr",
             width    = "110px"
           )
         )
@@ -294,7 +303,7 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   session$userData$timestamp_cookie_check <- reactiveVal(Sys.time())
   session$userData$timestamp_cookie_reset <- reactiveVal(Sys.time())
 
-  session$userData$idioma <- reactiveVal(config_global$idioma %||% "fr")
+  session$userData$idioma <- reactiveVal(config_global$protegR2$lang_default %||% "fr")
 
   # user_info est la liste centrale d'état de l'utilisateur connecté.
 

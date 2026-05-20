@@ -297,8 +297,8 @@ mod_config_server <- function(id,
     # * ------ My account server ---------------------------------------------------------------
     observeEvent(input$save_password, {
       print("observeEvent(input$save_password, ....")
-      current_cookie <- get_cookie(session$userData$config_global$cookie_name)
-      print(session$userData$config_global$cookie_name)
+      current_cookie <- get_cookie(session$userData$config_global$protegR2$cookie_name)
+      print(session$userData$config_global$protegR2$cookie_name)
       print(str_c("from user config (current_cookie): ", current_cookie))
       print(str_c("from user config (config_s3_location)", config_s3_location))
       cookie_validator <- s3readRDS_HL(paste0("session/", current_cookie, ".rds"))
@@ -589,7 +589,7 @@ mod_config_server <- function(id,
       )
     })
 
-    output$cookie_name <- renderText(paste("Nom du cookie:", session$userData$config_global$cookie_name))
+    output$cookie_name <- renderText(paste("Nom du cookie:", session$userData$config_global$protegR2$cookie_name))
 
     timestamp_activity <- reactiveVal(Sys.time()) #initialisation
     observe({
@@ -639,26 +639,26 @@ mod_config_server <- function(id,
     ########################################################################
 
     observeEvent(input$delete_cookie, {
-      remove_cookie(cookie_name = session$userData$config_global$cookie_name)
+      remove_cookie(cookie_name = session$userData$config_global$protegR2$cookie_name)
       print("cookie remove")
     })
 
     observeEvent(input$write_cookie, {
-      set_cookie(cookie_name = session$userData$config_global$cookie_name,
+      set_cookie(cookie_name = session$userData$config_global$protegR2$cookie_name,
                  cookie_value = session$userData$user_info$token_value,
                  expiration = 1 / 24 / 60 / 60 * input$cookie_expiration * as.double(input$expiration_unit))
       cat("cookie test écrit: ", as_hms(input$cookie_expiration * as.double(input$expiration_unit)), "\n")
     })
 
     observeEvent(input$write_cookie_diff, {
-      set_cookie(cookie_name = session$userData$config_global$cookie_name,
+      set_cookie(cookie_name = session$userData$config_global$protegR2$cookie_name,
                  cookie_value = UUIDgenerate(use.time = FALSE),
                  expiration = 1 / 24 / 60 / 60 * input$cookie_expiration * as.double(input$expiration_unit))
       cat("cookie test écrit: ", as_hms(input$cookie_expiration * as.double(input$expiration_unit)), "\n")
     })
 
     output$cookie_value <- renderPrint({
-      valeur <- get_cookie(session$userData$config_global$cookie_name)
+      valeur <- get_cookie(session$userData$config_global$protegR2$cookie_name)
       valeur
     })
 

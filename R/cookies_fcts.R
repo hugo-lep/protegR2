@@ -16,7 +16,7 @@ cookie_set_user <- function(input, session) {
   token_value         <- session$userData$user_info$token_value
   session_timeout_mins <- session$userData$user_info$valid_user()$inactivity_delay
   username            <- session$userData$user_info$valid_user()$username
-  cookie_name         <- session$userData$config_global$cookie_name
+  cookie_name         <- session$userData$config_global$protegR2$cookie_name
 
   # Fichier de session sauvegardé sur S3 — contient uniquement ce qui est
   # nécessaire pour valider la session : token, expiration, fingerprint, username.
@@ -59,7 +59,7 @@ cookie_set_user <- function(input, session) {
 #' @noRd
 cookie_remove_user <- function(session) {
 
-  remove_cookie(session$userData$config_global$cookie_name)
+  remove_cookie(session$userData$config_global$protegR2$cookie_name)
   message("cookies deleted")
 }
 
@@ -93,7 +93,7 @@ cookie_activity_timestamp <- function(just_logged_out, input, session) {
       print("from cookie_activity_timestamp: *** il y a un cookie validator ***")
     }
 
-    if (as.numeric(difftime(now, session$userData$timestamp_cookie(), units = "secs")) > session$userData$config_global$cookie_update_time) {
+    if (as.numeric(difftime(now, session$userData$timestamp_cookie(), units = "secs")) > session$userData$config_global$protegR2$security$cookie_throttle_ms / 1000) {
 
       cookie_set_user(input, session)
       session$userData$timestamp_cookie(now)
@@ -115,7 +115,7 @@ utils::globalVariables(c(
 #' @noRd
 cookie_auto_login <- function(input, session) {
 
-  cookie_token <- cookies::get_cookie(session$userData$config_global$cookie_name)
+  cookie_token <- cookies::get_cookie(session$userData$config_global$protegR2$cookie_name)
   print(paste("from cookie_auto_login: cookie_token:", cookie_token))
 
   # s'il n'y a pas de token (avec le nom spécifié par config_global), tout le code dans le if() n'est pas exécuté

@@ -97,10 +97,10 @@ protegr2_layout_controls <- function(gear = TRUE) {
 #' Dropdown de sélection de langue pour les templates protegR2
 #'
 #' Construit le bouton Bootstrap dropdown permettant à l'utilisateur de changer
-#' la langue de l'interface. Retourne `NULL` si `config_global$show_idioma` est
+#' la langue de l'interface. Retourne `NULL` si `config_global$protegR2$lang_choice` est
 #' `FALSE`, ce que `tagList()` ignore silencieusement.
 #'
-#' Les langues disponibles sont lues depuis `config_global$supported_idiomas`
+#' Les langues disponibles sont lues depuis `config_global$protegR2$lang_options`
 #' (liste nommée définie dans `global.R`) — ajouter ou retirer une langue dans
 #' `global.R` suffit, sans toucher aux templates ni à cette fonction.
 #'
@@ -128,12 +128,12 @@ protegr2_lang_dropdown <- function(config_global, idioma) {
   # Retourner NULL (et non tagList() vide) permet à l'appelant d'utiliser
   # lang_dropdown directement dans tagList() ou tags$div() sans condition
   # supplémentaire — Shiny/htmltools ignorent les NULL dans ces contextes.
-  if (!(config_global$show_idioma %||% TRUE)) return(NULL)
+  if (!(config_global$protegR2$lang_choice %||% TRUE)) return(NULL)
 
   # ── Label affiché sur le bouton ───────────────────────────────────────────
-  # On lit mini_label depuis supported_idiomas via le code langue courant.
-  # Ex : idioma = "fr" → supported_idiomas[["fr"]]$mini_label → "FR"
-  mini_label <- config_global$supported_idiomas[[idioma]]$mini_label
+  # On lit mini_label depuis lang_options via le code langue courant.
+  # Ex : idioma = "fr" → lang_options[["fr"]]$mini_label → "FR"
+  mini_label <- config_global$protegR2$lang_options[[idioma]]$mini_label
 
   # ── Dropdown Bootstrap ────────────────────────────────────────────────────
   # data-bs-toggle="dropdown" : active le comportement natif Bootstrap 5
@@ -154,7 +154,7 @@ protegr2_lang_dropdown <- function(config_global, idioma) {
     # (list(mini_label, label)) — les deux sont nécessaires ici.
     tags$ul(
       class = "dropdown-menu dropdown-menu-end",
-      purrr::imap(config_global$supported_idiomas, function(lang, ref) {
+      purrr::imap(config_global$protegR2$lang_options, function(lang, ref) {
         tags$li(tags$a(
           class   = "dropdown-item",
           href    = "#",
