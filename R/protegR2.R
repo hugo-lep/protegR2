@@ -260,11 +260,16 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
     # Aucun host restreint configuré → accès libre pour tous
     if (is.null(restricted) || length(restricted) == 0) return(TRUE)
 
-    # Host actuel : valeur de test locale (override_host) ou URL réelle du navigateur
+    # Identifiant de l'URL courante : hostname + pathname.
+    # On combine les deux pour supporter les deux patterns de déploiement :
+    #   - sous-domaine : "voyages-dev.avnumbers.ca/"   (pathname = "/")
+    #   - sous-dossier : "avnumbers.ca/financedev/"    (pathname = "/financedev/")
+    # override_host permet de simuler n'importe quelle valeur en local (127.0.0.1).
     current_host <- config_global$protegR2$security$override_host %||%
-                    session$clientData$url_hostname
+                    paste0(session$clientData$url_hostname,
+                           session$clientData$url_pathname)
 
-    # Host non restreint → accès libre
+    # URL non restreinte → accès libre
     if (!current_host %in% restricted) return(TRUE)
 
     # Host restreint : "dev" passe toujours (implicite), les autres ont besoin du flag

@@ -172,16 +172,28 @@ protegR2_init_layout <- function(style = c("sidebar", "fluid", "navbar", "fixed"
 }
 
 
-# Initialise le fichier users_auth.rds sur S3 avec 5 utilisateurs par defaut.
-# Fonction interne appelee par protegR2_init_record_s3_users_auth_file_default().
-# @noRd supprime la generation du .Rd (pas exportee) tout en gardant les @importFrom.
-#
+#' Créer les utilisateurs par défaut sur S3
+#'
+#' @description
+#' Crée `users_auth.rds` sur S3 avec 5 utilisateurs par défaut.
+#' Toujours appelé peu importe le backend (`user_config_backend`),
+#' car l'authentification reste sur S3 dans tous les modes.
+#'
+#' Utilisateurs créés : user1/pass1, user2/pass2, admin/pass3,
+#' super_admin/pass4, dev/pass5.
+#'
+#' @return Rien.
+#' @export
+#'
 #' @importFrom lubridate today
 #' @importFrom sodium password_store
 #' @importFrom s3db s3_connection_HL s3saveRDS_HL
-#' @importFrom sodium data_decrypt
-#' @noRd
-protegR2_init_record_s3_users_auth_file <- function() {
+#'
+#' @examples
+#' if (interactive()) {
+#'   protegR2_init_users()
+#' }
+protegR2_init_users <- function() {
 
   s3_connection_HL()
 
@@ -207,25 +219,135 @@ protegR2_init_record_s3_users_auth_file <- function() {
 
   s3saveRDS_HL(user_access,
                object_name = file.path("config_files", "users_auth.rds"))
+
+  message("✅ users_auth.rds enregistré sur S3 avec 5 utilisateurs par défaut.")
+  message("   user1/pass1 | user2/pass2 | admin/pass3 | super_admin/pass4 | dev/pass5")
 }
 
 
-#' Version par défaut de `protegR2_init_record_s3_users_auth_file`
+#' Initialiser le schéma protegr2 dans une base PostgreSQL
 #'
 #' @description
-#' Wrapper de la fonction principale. Lit les fichiers `config_s3_access.rds` et `config_s3_location.rds`
-#' depuis le dossier `inst/app/data/`, puis appelle `protegR2_init3_record_s_users_auth_file()`.
+#' Crée le schéma `protegr2` et ses deux tables dans la DB connectée via `pool` :
+#' - `protegr2.sessions`  — remplace les fichiers `session/\{token\}.rds` sur S3
+#' - `protegr2.user_config` — préférences par utilisateur (JSONB structuré par package)
+#'
+#' Insère aussi les 5 lignes par défaut dans `user_config` (une par utilisateur créé
+#' par `protegR2_init_users()`). Les lignes existantes ne sont pas écrasées
+#' (`ON CONFLICT DO NOTHING`).
+#'
+#' @param pool Objet pool de connexion postgres (créé via `pool::dbPool()`).
 #'
 #' @return Rien.
 #' @export
 #'
+#' @importFrom DBI dbExecute
+#'
 #' @examples
-#' if (interactive()) {
-#'   protegR2_init_record_s3_users_auth_file_default()
+#' \dontrun{
+#'   pool <- pool::dbPool(
+#'     drv      = RPostgres::Postgres(),
+#'     dbname   = config_global$protegR2$db$dbname,
+#'     host     = config_global$protegR2$db$host,
+#'     port     = config_global$protegR2$db$port,
+#'     user     = config_global$protegR2$db$user,
+#'     password = config_global$protegR2$db$password
+#'   )
+#'   protegR2_init_postgres(pool)
+#'   pool::poolClose(pool)
 #' }
-protegR2_init_record_s3_users_auth_file_default <- function() {
-  config_s3_location <- readRDS("inst/app/data/config_s3_location.rds")
-  protegR2_init_record_s3_users_auth_file()
+protegR2_init_postgres <- function(pool) {
+
+  # Schéma protegr2 — commun à toutes les apps qui utilisent protegR2 + postgres.
+  # IF NOT EXISTS : sûr à appeler même si le schéma existe déjà.
+  DBI::dbExecute(pool, "CREATE SCHEMA IF NOT EXISTS protegr2")
+
+  # Table des sessions — remplace les fichiers session/{token}.rds sur S3.
+  # Avantage : lecture locale sur le VPS (~1-5ms vs ~100-300ms sur S3).
+  DBI::dbExecute(pool, "
+    CREATE TABLE IF NOT EXISTS protegr2.sessions (
+      token_value  TEXT      PRIMARY KEY,
+      username     TEXT      NOT NULL,
+      expiration   TIMESTAMP NOT NULL,
+      finger_print TEXT      NOT NULL
+    )
+  ")
+
+  # Table de config utilisateur — JSONB structuré par package.
+  # Ex: { \"protegr2\": { \"theme\": \"dark\" }, \"stocktools\": { \"watchlist\": [...] } }
+  # user_id correspond au userID de users_auth.rds sur S3.
+  DBI::dbExecute(pool, "
+    CREATE TABLE IF NOT EXISTS protegr2.user_config (
+      user_id  INTEGER PRIMARY KEY,
+      username TEXT    NOT NULL,
+      config   JSONB   NOT NULL DEFAULT '{}'::jsonb
+    )
+  ")
+
+  # 5 lignes par défaut — une par utilisateur créé par protegR2_init_users().
+  # ON CONFLICT DO NOTHING : idempotent, safe à rappeler sans écraser les données existantes.
+  DBI::dbExecute(pool, "
+    INSERT INTO protegr2.user_config (user_id, username, config)
+    VALUES
+      (1, 'user1',       '{}'::jsonb),
+      (2, 'user2',       '{}'::jsonb),
+      (3, 'admin',       '{}'::jsonb),
+      (4, 'super_admin', '{}'::jsonb),
+      (5, 'dev',         '{}'::jsonb)
+    ON CONFLICT (user_id) DO NOTHING
+  ")
+
+  message("✅ Schéma protegr2 créé avec les tables sessions et user_config.")
+}
+
+
+#' Initialiser le backend de données d'un projet protegR2
+#'
+#' @description
+#' Orchestre l'initialisation complète selon le `user_config_backend` défini
+#' dans `config_global$protegR2$user_config_backend` :
+#'
+#' - `"none"` ou `"s3"` : crée uniquement `users_auth.rds` sur S3
+#' - `"postgres"` : crée `users_auth.rds` sur S3 ET le schéma `protegr2` dans postgres
+#'
+#' `users_auth.rds` est toujours créé sur S3 car l'authentification reste
+#' sur S3 dans tous les modes.
+#'
+#' @param config_global Liste de configuration du projet (chargée depuis S3).
+#' @param pool Objet pool postgres. Requis si `user_config_backend == "postgres"`, ignoré sinon.
+#'
+#' @return Rien.
+#' @export
+#'
+#' @importFrom rlang %||%
+#'
+#' @examples
+#' \dontrun{
+#'   # Mode S3 uniquement
+#'   protegR2_setup(config_global)
+#'
+#'   # Mode postgres
+#'   pool <- pool::dbPool(...)
+#'   protegR2_setup(config_global, pool = pool)
+#'   pool::poolClose(pool)
+#' }
+protegR2_setup <- function(config_global, pool = NULL) {
+
+  # L'auth reste toujours sur S3, peu importe le backend
+  protegR2_init_users()
+
+  backend <- config_global$protegR2$user_config_backend %||% "none"
+
+  if (backend == "postgres") {
+    if (is.null(pool)) {
+      stop("user_config_backend = 'postgres' mais pool = NULL. ",
+           "Fournir un pool de connexion postgres.")
+    }
+    protegR2_init_postgres(pool)
+  }
+
+  message("✅ protegR2_setup terminé (backend : ", backend, ")")
+  invisible(NULL)
 }
 
 

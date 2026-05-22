@@ -20,11 +20,11 @@ Un `tags$div` Bootstrap dropdown, ou `NULL` si `show_idioma` est FALSE.
 }
 \description{
 Construit le bouton Bootstrap dropdown permettant à l'utilisateur de changer
-la langue de l'interface. Retourne `NULL` si `config_global$show_idioma` est
+la langue de l'interface. Retourne `NULL` si `config_global$protegR2$lang_choice` est
 `FALSE`, ce que `tagList()` ignore silencieusement.
 }
 \details{
-Les langues disponibles sont lues depuis `config_global$supported_idiomas`
+Les langues disponibles sont lues depuis `config_global$protegR2$lang_options`
 (liste nommée définie dans `global.R`) — ajouter ou retirer une langue dans
 `global.R` suffit, sans toucher aux templates ni à cette fonction.
 }
