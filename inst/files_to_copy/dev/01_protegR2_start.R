@@ -140,14 +140,30 @@ s3saveRDS_HL(config_global, object_name = "config_files/config_global.rds")
 message("✅ config_global enregistré sur S3.")
 
 
-# ------ Étape 5 : Initialiser les utilisateurs et le backend ------------------
-
-# Crée users_auth.rds sur S3 (toujours) + schéma protegr2 en postgres si configuré.
+# ------ Étape 5 (postgres seulement) : Créer la DB et l'utilisateur ----------
 #
+# À faire en superuser dans psql (sudo -u postgres psql) :
+#
+#   CREATE DATABASE mon_projet;
+#   CREATE USER mon_projet WITH PASSWORD 'mot_de_passe';
+#   GRANT CONNECT ON DATABASE mon_projet TO mon_projet;
+#   GRANT CREATE ON DATABASE mon_projet TO mon_projet;
+#   \c mon_projet
+#   GRANT USAGE, CREATE ON SCHEMA public TO mon_projet;
+#
+# Convention : DB et user ont le même nom que le projet.
+# Le schéma protegr2 sera créé automatiquement par protegR2_setup() à l'étape suivante.
+
+
+# ------ Étape 6 : Initialiser les utilisateurs et le backend ------------------
+
+# Crée users_auth.rds sur S3 (toujours).
+# Si user_config_backend = "postgres", crée aussi le schéma protegr2 + tables.
+
 # Mode "none" ou "s3" :
 protegR2_setup(config_global)
-#
-# Mode "postgres" : créer le pool d'abord, puis appeler setup
+
+# Mode "postgres" : créer le pool d'abord, puis appeler setup, puis fermer le pool
 # pool <- pool::dbPool(
 #   drv      = RPostgres::Postgres(),
 #   dbname   = config_global$protegR2$db$dbname,
@@ -159,6 +175,13 @@ protegR2_setup(config_global)
 # protegR2_setup(config_global, pool = pool)
 # pool::poolClose(pool)
 
+# Vérifier que les tables ont été créées (mode postgres) :
+# DBI::dbGetQuery(pool, "
+#   SELECT table_name
+#   FROM information_schema.tables
+#   WHERE table_schema = 'protegr2'
+# ")
+
 # Utilisateurs créés par défaut :
 #   user1/pass1       → role = user
 #   user2/pass2       → role = user
@@ -167,7 +190,7 @@ protegR2_setup(config_global)
 #   dev/pass5         → role = dev
 
 
-# ------ Étape 6 : Déploiement sur le VPS (EC2 / Ubuntu) ----------------------
+# ------ Étape 7 : Déploiement sur le VPS (EC2 / Ubuntu) ----------------------
 
 # Se connecter en SSH et cloner le projet depuis GitHub :
 #   git clone git@github.com:hugo-lep/mon_projet.git

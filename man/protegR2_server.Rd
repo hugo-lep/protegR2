@@ -4,13 +4,17 @@
 \alias{protegR2_server}
 \title{Serveur principal de protegR2}
 \usage{
-protegR2_server(input, output, session, style = "sidebar")
+protegR2_server(input, output, session, style = "sidebar", pool = NULL)
 }
 \arguments{
 \item{input, output, session}{Parametres standards d'une fonction serveur Shiny}
 
 \item{style}{Layout : \code{"sidebar"}, \code{"navbar"}, \code{"fluid"}
 ou \code{"fillable"}}
+
+\item{pool}{Pool de connexion postgres (via \code{pool::dbPool()}). Requis
+si \code{user_config_backend = "postgres"} dans \code{config_global},
+\code{NULL} sinon.}
 }
 \description{
 Orchestre toute la logique serveur : initialisation de session,

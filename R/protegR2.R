@@ -209,6 +209,9 @@ utils::globalVariables(c(
 #' @param input,output,session Parametres standards d'une fonction serveur Shiny
 #' @param style Layout : \code{"sidebar"}, \code{"navbar"}, \code{"fluid"}
 #'   ou \code{"fillable"}
+#' @param pool Pool de connexion postgres (via \code{pool::dbPool()}). Requis
+#'   si \code{user_config_backend = "postgres"} dans \code{config_global},
+#'   \code{NULL} sinon.
 #'
 #' @importFrom bslib navset_pill_list navset_underline navset_tab navset_card_underline page_navbar page_fixed page_fillable
 #' @importFrom shiny observe observeEvent reactive renderUI req reactiveVal
@@ -221,9 +224,11 @@ utils::globalVariables(c(
 #' @importFrom sodium password_verify
 #' @importFrom s3db s3readRDS_HL s3exist_HL
 #' @importFrom utilsHL make_tr
+#' @importFrom DBI dbGetQuery
+#' @importFrom rlang %||%
 #'
 #' @export
-protegR2_server <- function(input, output, session, style = "sidebar") {
+protegR2_server <- function(input, output, session, style = "sidebar", pool = NULL) {
 
   # ── Fonction helper locale : incrément du compteur de brute force ──────────
   #
@@ -305,6 +310,7 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
   session$userData$config_s3_location     <- config_s3_location
   session$userData$config_global          <- config_global
   session$userData$style                  <- style
+  session$userData$pool                   <- pool   # NULL si backend != "postgres"
   session$userData$timestamp_cookie_check <- reactiveVal(Sys.time())
   session$userData$timestamp_cookie_reset <- reactiveVal(Sys.time())
 
@@ -756,26 +762,35 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
 
     # req() : ne s'exécute que si l'utilisateur est connecté.
     # Sans ça, le bloc s'exécuterait aussi sur la page de login à chaque frappe
-    # dans les champs username/password — inutile et coûteux (appels S3).
+    # dans les champs username/password — inutile et coûteux.
     req(session$userData$user_info$user_auth())
-    print("start cookie refresh")
 
     now         <- Sys.time()
     token_value <- session$userData$user_info$token_value
-    file_path   <- paste0("session/", token_value, ".rds")
+    backend     <- config_global$protegR2$user_config_backend %||% "none"
+    pool        <- session$userData$pool
 
-    # Double vérification : on vérifie que le fichier S3 existe ET qu'il n'est
-    # pas expiré. Si le fichier manque, c'est qu'un autre login a créé un nouveau
-    # token (détection session simultanée Option B). On déconnecte proprement.
-    if (!s3exist_HL(object = file_path) ||
-        s3readRDS_HL(object = file_path) %>% pull(expiration) < now) {
-      print("cookie validator n'existe pas ou est expiré — déconnexion")
+    # ── Vérification que la session est encore valide ────────────────────────
+    #
+    # Si le token a disparu ou est expiré → déconnexion (autre login détecté).
+    # Si valide → on prolonge l'expiration (cookie_set_user gère les deux backends).
+    session_valide <- if (backend == "postgres" && !is.null(pool)) {
+      result <- DBI::dbGetQuery(pool,
+        "SELECT expiration FROM protegr2.sessions WHERE token_value = $1",
+        list(token_value)
+      )
+      nrow(result) == 1 && result$expiration[1] > now
+    } else {
+      file_path <- paste0("session/", token_value, ".rds")
+      s3exist_HL(object = file_path) &&
+        s3readRDS_HL(object = file_path) %>% pull(expiration) >= now
+    }
+
+    if (!session_valide) {
       just_logged_out(TRUE)
       session$userData$user_info$user_auth(NULL)
     } else {
-      # Tout est valide : on prolonge la session en recréant le fichier S3
-      # avec une nouvelle date d'expiration (maintenant + inactivity_delay).
-      print("cookie validator valide — refresh du cookie")
+      # Session valide : prolonger l'expiration (S3 ou postgres via cookie_set_user)
       cookie_set_user(input, session)
       session$userData$timestamp_cookie_reset(now)
     }
@@ -819,33 +834,34 @@ protegR2_server <- function(input, output, session, style = "sidebar") {
     req(session$userData$user_info$user_auth())
     invalidateLater(45000)
 
-    print("vérification token S3 toutes les 45s")
-
-    # req() sur token_value : sécurité pour ne pas appeler S3 avec un chemin
-    # invalide si token_value n'est pas encore initialisé (cas théorique).
     token_value <- session$userData$user_info$token_value
     req(token_value)
 
-    file_path <- paste0("session/", token_value, ".rds")
+    backend <- config_global$protegR2$user_config_backend %||% "none"
+    pool    <- session$userData$pool
 
-    if (!s3exist_HL(object = file_path)) {
-      # Le token n'existe plus sur S3 :
-      #   - Autre login avec ce username → cookie_validator_delete() a supprimé ce token
-      #   - Token expiré et nettoyé manuellement
-      # Dans les deux cas, on invalide la session côté Shiny.
-      # On n'appelle PAS perform_logout() ici (qui supprimerait d'autres tokens
-      # et enverrait des messages) — on se contente de couper la session locale.
-      #
-      # Ordre intentionnel des trois lignes ci-dessous :
-      #   1. just_logged_out(TRUE)      → empêche l'observe d'auto-login de se déclencher
-      #                                   pendant que le popup est affiché
-      #   2. sendCustomMessage(...)     → envoie le popup au navigateur (non-bloquant
-      #                                   côté serveur, asynchrone côté client)
-      #   3. user_auth(NULL)            → invalide la session serveur immédiatement ;
-      #                                   renderUI bascule vers la page de login, mais
-      #                                   le handler JS forceDisconnect est dans tags$head
-      #                                   (toujours présent) et s'exécutera quand même
-      print("token S3 introuvable — session invalidee (expiration ou connexion simultanee)")
+    # ── Vérification que le token existe encore côté serveur ──────────────────
+    #
+    # Si le token a disparu (autre login → cookie_validator_delete() l'a supprimé,
+    # ou expiration naturelle), on invalide la session locale.
+    # On n'appelle PAS perform_logout() ici — on coupe seulement la session courante.
+    #
+    # Ordre intentionnel :
+    #   1. just_logged_out(TRUE)  → bloque l'auto-login pendant que le popup s'affiche
+    #   2. sendCustomMessage(...) → affiche le popup (asynchrone côté client)
+    #   3. user_auth(NULL)        → bascule vers la page de login
+    token_existe <- if (backend == "postgres" && !is.null(pool)) {
+      result <- DBI::dbGetQuery(pool,
+        "SELECT COUNT(*) AS n FROM protegr2.sessions WHERE token_value = $1",
+        list(token_value)
+      )
+      result$n > 0
+    } else {
+      file_path <- paste0("session/", token_value, ".rds")
+      s3exist_HL(object = file_path)
+    }
+
+    if (!token_existe) {
       just_logged_out(TRUE)
       session$sendCustomMessage("forceDisconnect", list(
         message = "Votre session a ete ouverte sur un autre appareil. Vous avez ete deconnecte."

@@ -9,7 +9,6 @@
 #'
 #' @noRd
 perform_login <- function(valid_user, token_value, input, session) {
-  print("############################## perform login: début #####################################")
 
   # Mise à jour des informations de session dans userData
   session$userData$user_info$token_value <- token_value
@@ -18,20 +17,19 @@ perform_login <- function(valid_user, token_value, input, session) {
 
   message(str_c("Utilisateur connecté : ", valid_user$username, " | rôle : ", valid_user$role))
 
-  # Enregistrement du cookie navigateur + fichier de session sur S3
+  # Enregistrement de la session côté serveur (S3 ou postgres) + cookie navigateur
   cookie_set_user(input = input, session = session)
-
-  print("############################## perform login: terminé #####################################")
 }
 
 utils::globalVariables(c(
   "Key", "config_s3_location", "expiration", "sessions", "user", "token", "shiny_token"
 ))
+
 #' Action lors du logout
 #'
 #' @description
-#' Efface le token et le cookie de la session et ensuite déconnecte l'utilisateur
-#'
+#' Supprime le token de session côté serveur, déconnecte les sessions concurrentes,
+#' supprime le cookie navigateur et réinitialise l'état de la session Shiny.
 #'
 #' @param session Variable de la session shiny
 #'
@@ -40,93 +38,80 @@ utils::globalVariables(c(
 #' @importFrom purrr map map_chr walk
 #' @importFrom stringr str_c
 #' @importFrom magrittr %>%
+#' @importFrom DBI dbExecute
+#' @importFrom rlang %||%
 #'
 #' @noRd
 perform_logout <- function(session) {
 
-  token_value <- session$userData$user_info$token_value
-  token_on_s3 <- s3list_HL(prefix = "session/") %>%
-    map_chr("Key", .default = NA_character_) %>%
-    as.vector()
+  token_value      <- session$userData$user_info$token_value
+  current_username <- session$user
+  backend          <- session$userData$config_global$protegR2$user_config_backend %||% "none"
+  pool             <- session$userData$pool
 
-  token_on_s3_value <- token_on_s3 %>%
-    map(s3readRDS_HL, main_folder = FALSE) %>%
-    bind_rows()
+  # ── Suppression du token côté serveur ────────────────────────────────────────
+  #
+  # Les deux backends suppriment le token courant ET nettoient les tokens expirés
+  # en une seule opération pour éviter l'accumulation d'entrées orphelines.
 
-  print("token_on_s3_value")
-  print(token_on_s3_value)
+  if (backend == "postgres" && !is.null(pool)) {
 
-  # *----- Nettoyage token avnumbers -----------------------------------------------
-  token_expiré <- token_on_s3_value %>%
-    filter(expiration < Sys.time()) %>%
-    pull(token_value)
+    DBI::dbExecute(pool,
+      "DELETE FROM protegr2.sessions
+       WHERE token_value = $1 OR expiration < NOW()",
+      list(token_value)
+    )
+    message("Token supprimé de protegr2.sessions (postgres)")
 
-  token_a_effacer <- if (length(token_expiré) == 0) {
-    token_value
   } else {
-    c(token_value, token_expiré) %>% unique()
+
+    token_on_s3 <- s3list_HL(prefix = "session/") %>%
+      map_chr("Key", .default = NA_character_) %>%
+      as.vector()
+
+    token_on_s3_value <- token_on_s3 %>%
+      map(s3readRDS_HL, main_folder = FALSE) %>%
+      bind_rows()
+
+    token_expiré  <- token_on_s3_value %>%
+      filter(expiration < Sys.time()) %>%
+      pull(token_value)
+
+    token_a_effacer  <- c(token_value, token_expiré) %>% unique()
+    token_a_effacer2 <- str_c("session/", token_a_effacer, ".rds")
+    token_a_effacer2 %>% walk(s3delete_HL)
+    message("Token(s) S3 supprimé(s)")
   }
 
-  token_a_effacer2 <- str_c("session/", token_a_effacer, ".rds")
-
-  token_a_effacer2 %>%
-    walk(s3delete_HL)
-  message("token(s) serveur nettoyé(s")
-
-  # *----- Nettoyage var global sessions -----------------------------------------------
-  active_user_cookie_validator <- token_on_s3_value %>%
-    filter(expiration > Sys.time()) %>%
-    pull(username)
-
-  print("active_user_cookie_validator")
-  print(active_user_cookie_validator)
-  ls(sessions)
-
+  # ── Déconnexion des sessions Shiny concurrentes du même utilisateur ──────────
+  #
+  # L'environnement in-memory `sessions` recense toutes les sessions Shiny actives.
+  # On envoie forceDisconnect aux autres sessions du même utilisateur
+  # (autre onglet, autre appareil). Identique pour S3 et postgres.
   active_shiny_session <- lapply(ls(sessions), function(tok) {
-    s <- sessions[[tok]]$session   # accès à la session Shiny
-    list(
-      token = tok,
-      user  = s$user
-    )
+    s <- sessions[[tok]]$session
+    list(token = tok, user = s$user)
   }) %>%
-    purrr::map_dfr(~tibble(
-      user        = .x$user,
-      shiny_token = .x$token
-    ))
-
-
-  print("active_shiny_session")
-  print(active_shiny_session)
-  print(ls(sessions))
+    purrr::map_dfr(~tibble(user = .x$user, shiny_token = .x$token))
 
   shiny_session_to_remove <- active_shiny_session %>%
-    filter(!user %in% active_user_cookie_validator) %>%
+    filter(user == current_username, shiny_token != session$token) %>%
     pull(shiny_token)
 
   for (tok in shiny_session_to_remove) {
     s <- sessions[[tok]]$session
     if (!is.null(s)) {
-      # Utilise forceDisconnect (défini dans protegR2_ui()) plutôt que forceReload
-      # (qui n'existe plus depuis la migration bslib).
-      # Le même handler servira aussi pour la déconnexion forcée par session
-      # simultanée (Phase 2.4 — observe 45s). En Phase 2.4, alert() sera
-      # remplacé par sweetAlert, ce qui améliorera les deux cas d'un coup.
       s$sendCustomMessage("forceDisconnect", list(
-        message = "Votre session a \u00e9t\u00e9 ferm\u00e9e suite \u00e0 une d\u00e9connexion sur un autre appareil ou navigateur."
+        message = "Votre session a été fermée suite à une déconnexion sur un autre appareil ou navigateur."
       ))
     }
     rm(list = tok, envir = sessions)
   }
 
-
-  # *----- Nettoyage cookie + disconnect -----------------------------------------------
-
-
+  # ── Nettoyage cookie + état session ──────────────────────────────────────────
   cookie_remove_user(session)
-
   session$user <- NULL
   session$userData$user_info$valid_user(NULL)
-  session$userData$user_info$user_auth(NULL)  # met à jour le reactiveVal
-
+  session$userData$user_info$user_auth(NULL)
   message("Utilisateur déconnecté.")
 }
