@@ -24,6 +24,7 @@ Imports:
     glue,
     hms,
     htmltools,
+    jsonlite,
     lubridate,
     magrittr,
     purrr,

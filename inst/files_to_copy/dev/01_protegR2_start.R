@@ -174,6 +174,13 @@ protegR2_setup(config_global)
 # )
 # protegR2_setup(config_global, pool = pool)
 # pool::poolClose(pool)
+#
+# ⚠️  Ne pas oublier dans global.R du projet :
+#   Créer le pool (pool::dbPool(...)) avec les credentials de config_global$protegR2$db
+#
+# ⚠️  Ne pas oublier dans server.R du projet :
+#   Passer pool = pool à protegR2_server() :
+#   protegR2_server(input, output, session, pool = pool)
 
 # Vérifier que les tables ont été créées (mode postgres) :
 # DBI::dbGetQuery(pool, "

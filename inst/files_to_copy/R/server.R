@@ -1,5 +1,9 @@
 print("server")
 # server.R
 server <- function(input, output, session) {
-  protegR2_server(input, output, session)  # variables globales accessibles
+
+  # Si user_config_backend = "postgres" dans config_global :
+  #   remplacer pool = NULL par pool = pool
+  #   (pool doit être créé dans global.R via pool::dbPool())
+  protegR2_server(input, output, session, pool = NULL)
 }

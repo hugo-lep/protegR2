@@ -71,7 +71,7 @@ library(bslib)        # layouts Bootstrap 5 (page_fluid, navset_*, etc.)
 #   "navbar"   → page_navbar()      — barre horizontale en haut
 #   "fixed"    → page_fixed() + navset_tab() + engrenage flottant
 #   "fillable" → page_fillable() + navset_card_underline() + engrenage flottant
-style <- "fillable"
+style <- "sidebarHL"
 
 
 # ── Étape 4 : Sourcer les fichiers template ────────────────────────────────────

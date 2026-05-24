@@ -33,9 +33,10 @@ print("protegR2_load_modules_UIs — style: sidebarHL")
 #
 # Restauration de l'onglet actif :
 #   selected = page_actif lit le paramètre ?page= de l'URL.
-#   L'observeEvent(input$nav_tab, ...) dans protegR2_server() maintient ce
-#   paramètre à jour à chaque navigation.
-#   Convention obligatoire : id = "nav_tab" sur page_sidebarHL().
+#   La synchronisation URL est gérée par page_sidebarHL_server() dans
+#   protegR2_load_modules_servers.R (via input$hl__nav, interne à bslibHL).
+#   L'observeEvent(input$nav_tab, ...) de protegR2_server() ne s'applique
+#   PAS à ce layout — page_sidebarHL() n'expose pas d'input$nav_tab.
 
 protegR2_load_modules_UIs <- function(session, tr) {
 
@@ -98,52 +99,73 @@ protegR2_load_modules_UIs <- function(session, tr) {
   }
 
   # ── Rendu : page_sidebarHL ─────────────────────────────────────────────────
-  # do.call() permet de passer les config_panels de longueur variable.
-  # title  : lu depuis config_global — modifie-le dans global.R / S3.
-  # id     : "nav_tab" — obligatoire pour la restauration d'onglet via l'URL
-  #          (observeEvent(input$nav_tab, ...) dans protegR2_server()).
+  # do.call() permet de passer les nav_panels de longueur variable.
+  #
+  # title : reçoit un tag HTML construit avec les classes CSS bslibHL.
+  #   page_sidebarHL() n'a pas de paramètre header_items — les éléments du
+  #   header (boutons, sélecteur de langue) doivent être embarqués dans title.
+  #   Structure attendue :
+  #     hl-header-wrapper  → div flex row sur toute la largeur du header
+  #     hl-header-title    → span qui prend l'espace restant (flex: 1)
+  #     hl-header-items    → div flex-shrink-0 pour les boutons à droite
+  #
+  # protegR2_compat = TRUE : masque .protegr2-logout-fixed et
+  #   .protegr2-idioma-fixed injectés par protegR2_ui(). Sans ce paramètre,
+  #   ces boutons "fixed" se superposeraient aux boutons du header bslibHL.
+  #
+  # selected : restaure l'onglet actif depuis l'URL (?page=valeur).
+  #   La mise à jour de l'URL à chaque navigation est gérée par
+  #   page_sidebarHL_server() appelé dans protegR2_load_modules_servers.R.
   do.call(bslibHL::page_sidebarHL, c(
     list(
-      title           = config_global$protegR2$header_title %||% "Application",
-      id              = "nav_tab",
+      title = htmltools::tags$div(
+        class = "hl-header-wrapper",
+
+        # Titre texte de l'application — flex: 1, prend tout l'espace disponible
+        htmltools::tags$span(
+          class = "hl-header-title",
+          config_global$protegR2$header_title %||% "Application"
+        ),
+
+        # Éléments à droite dans le header — flex-shrink: 0
+        htmltools::tags$div(
+          class = "hl-header-items",
+
+          # Sélecteur de langue — NULL si lang_choice est FALSE (ignoré silencieusement)
+          lang_dropdown,
+
+          # ── [OPTIONNEL] Bouton messages avec badge animé ────────────────
+          # Décommenter si votre app a un système de messagerie.
+          # Mettre à jour le compteur depuis le serveur via protegr2_update_badge().
+          # protegR2::protegr2_badge_button(
+          #   id       = "msg",
+          #   icon     = shiny::icon("envelope"),
+          #   count    = 0,
+          #   panel_id = "msg_panel"
+          # ),
+
+          # ── [OPTIONNEL] Bouton notifications avec badge animé ───────────
+          # Décommenter si votre app a un système de notifications.
+          # protegR2::protegr2_badge_button(
+          #   id       = "notif",
+          #   icon     = shiny::icon("bell"),
+          #   count    = 0,
+          #   panel_id = "notif_panel"
+          # ),
+
+          # Bouton logout — même inputId "logout" que le bouton fixed masqué
+          # par protegR2_compat = TRUE. Les deux déclenchent le même observeEvent.
+          shiny::actionButton(
+            inputId = "logout",
+            label   = shiny::tagList(shiny::icon("right-from-bracket"), " ", tr("logout")),
+            class   = "pr2-header-btn btn-sm"
+          )
+        )
+      ),
+
       theme           = bslibHL::hl_theme(),
       protegR2_compat = TRUE,
-      selected        = page_actif,
-
-      # ── Items du header ──────────────────────────────────────────────────
-      # Placez ici les éléments à afficher à droite dans la barre de titre.
-      # L'ordre de la liste détermine l'ordre d'affichage (gauche → droite).
-      header_items = list(
-
-        # Sélecteur de langue — NULL si lang_choice est FALSE (ignoré par list())
-        lang_dropdown,
-
-        # ── [OPTIONNEL] Bouton messages avec badge animé ──────────────────
-        # Décommenter si votre app a un système de messagerie.
-        # Mettre à jour le compteur depuis le serveur via protegr2_update_badge().
-        # protegR2::protegr2_badge_button(
-        #   id       = "msg",
-        #   icon     = shiny::icon("envelope"),
-        #   count    = 0,
-        #   panel_id = "msg_panel"
-        # ),
-
-        # ── [OPTIONNEL] Bouton notifications avec badge animé ─────────────
-        # Décommenter si votre app a un système de notifications.
-        # protegR2::protegr2_badge_button(
-        #   id       = "notif",
-        #   icon     = shiny::icon("bell"),
-        #   count    = 0,
-        #   panel_id = "notif_panel"
-        # ),
-
-        # Bouton logout
-        shiny::actionButton(
-          inputId = "logout",
-          label   = shiny::tagList(shiny::icon("right-from-bracket"), " ", tr("logout")),
-          class   = "pr2-header-btn btn-sm"
-        )
-      )
+      selected        = page_actif
     ),
 
     # ── Pages de navigation principales ────────────────────────────────────
@@ -187,8 +209,9 @@ protegR2_load_modules_UIs <- function(session, tr) {
     ),
 
     # ── Panneaux dropdown [OPTIONNEL] ───────────────────────────────────────
-    # À décommenter uniquement si tu utilises les badge buttons ci-dessus.
+    # À décommenter uniquement si tu utilises les badge buttons dans hl-header-items.
     # Ces panneaux s'affichent en overlay sous le bouton correspondant.
+    # Ils sont passés dans ... de page_sidebarHL() — pas dans title.
     # list(
     #   protegR2::protegr2_dropdown_panel(
     #     id = "msg_panel",
