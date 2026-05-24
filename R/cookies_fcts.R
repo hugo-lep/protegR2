@@ -52,6 +52,19 @@ cookie_set_user <- function(input, session) {
     )
     message("Session enregistrée dans protegr2.sessions (postgres)")
 
+  } else if (backend == "local") {
+
+    # ── Enregistrement en mémoire ──────────────────────────────────────────
+    # .local_sessions est un environnement au niveau du package (protegR2_local.R).
+    # Partagé entre toutes les sessions Shiny du même process R.
+    # Perdu au restart — comportement intentionnel du mode local.
+    .local_sessions[[token_value]] <- list(
+      username     = username,
+      expiration   = expiration,
+      finger_print = finger_print$fingerprint
+    )
+    message("Session locale enregistrée en mémoire pour : ", username)
+
   } else {
 
     # ── Enregistrement sur S3 ──────────────────────────────────────────────
@@ -178,6 +191,25 @@ cookie_auto_login <- function(input, session) {
     )
     if (!is.null(result) && nrow(result) == 1) return(result)
 
+  } else if (backend == "local") {
+
+    # ── Vérification en mémoire ────────────────────────────────────────────
+    # Vérifie token, fingerprint et expiration dans .local_sessions.
+    # Retourne un data.frame d'une ligne (même structure que postgres/S3)
+    # pour que le code appelant soit identique quel que soit le backend.
+    s <- .local_sessions[[cookie_token]]
+    if (!is.null(s) &&
+        s$finger_print == finger_print_var$fingerprint &&
+        s$expiration   > Sys.time()) {
+      return(data.frame(
+        token_value  = cookie_token,
+        username     = s$username,
+        expiration   = s$expiration,
+        finger_print = s$finger_print,
+        stringsAsFactors = FALSE
+      ))
+    }
+
   } else {
 
     # ── Vérification sur S3 ────────────────────────────────────────────────
@@ -240,6 +272,18 @@ cookie_validator_delete <- function(users, session) {
       )
     }
     message("Session(s) supprimées dans postgres pour : ", paste(users, collapse = ", "))
+
+  } else if (backend == "local") {
+
+    # ── Suppression en mémoire ─────────────────────────────────────────────
+    # Parcourt .local_sessions et supprime les tokens appartenant aux users.
+    all_tokens <- ls(.local_sessions)
+    for (tok in all_tokens) {
+      if (.local_sessions[[tok]]$username %in% users) {
+        rm(list = tok, envir = .local_sessions)
+      }
+    }
+    message("Session(s) locales supprimées pour : ", paste(users, collapse = ", "))
 
   } else {
 

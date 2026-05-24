@@ -307,7 +307,11 @@ protegR2_server <- function(input, output, session, style = "sidebar", pool = NU
   # On l'utilise comme "état global de session" — alternative propre aux
   # variables globales qui seraient partagées entre toutes les sessions.
 
-  session$userData$config_s3_location     <- config_s3_location
+  # get0() retourne NULL si config_s3_location n'existe pas dans l'environnement
+  # global — c'est le cas en mode local (pas de connexion S3 requise).
+  # En mode s3/postgres, la variable est définie dans global.R via
+  # set_config_s3_location() / s3_connection_HL() et est lue normalement.
+  session$userData$config_s3_location     <- get0("config_s3_location")
   session$userData$config_global          <- config_global
   session$userData$style                  <- style
   session$userData$pool                   <- pool   # NULL si backend != "postgres"
@@ -458,11 +462,15 @@ protegR2_server <- function(input, output, session, style = "sidebar", pool = NU
       return(NULL)
     }
 
-    # ── 3. Lecture de la base utilisateurs sur S3 ──────────────────────────
-    # Lecture à chaque tentative (pas de cache) pour que les modifications
-    # d'accès soient effectives immédiatement sans redémarrer l'application.
-    # Ex. : un admin désactive un compte → effectif au prochain essai de login.
-    users_info <- s3readRDS_HL(object = "config_files/users_auth.rds")
+    # ── 3. Lecture de la base utilisateurs ────────────────────────────────
+    # S3/postgres : lecture à chaque tentative (pas de cache) pour que les
+    # modifications soient effectives immédiatement sans redémarrer l'app.
+    # Local : data.frame déjà en mémoire dans config_global — aucun appel réseau.
+    users_info <- if ((config_global$protegR2$user_config_backend %||% "none") == "local") {
+      config_global$protegR2$local_users_auth
+    } else {
+      s3readRDS_HL(object = "config_files/users_auth.rds")
+    }
 
     # ── 4. Vérification de l'existence du username ─────────────────────────
     # trimws() appliqué ici aussi : cohérence avec la validation précédente.
@@ -608,9 +616,14 @@ protegR2_server <- function(input, output, session, style = "sidebar", pool = NU
 
       if (!is.null(S3_save_cookie_valid)) {
 
-        # Rechargement des données utilisateur depuis S3 pour avoir les
-        # informations à jour (rôle, actif, expiration) — pas de cache ici.
-        valid_user_df <- s3readRDS_HL(object = "config_files/users_auth.rds") %>%
+        # Rechargement des données utilisateur pour avoir les infos à jour.
+        # Local : déjà en mémoire. S3 : lecture sans cache.
+        all_users_df  <- if ((config_global$protegR2$user_config_backend %||% "none") == "local") {
+          config_global$protegR2$local_users_auth
+        } else {
+          s3readRDS_HL(object = "config_files/users_auth.rds")
+        }
+        valid_user_df <- all_users_df %>%
           filter(username == S3_save_cookie_valid[[1, "username"]])
         valid_user <- as.list(valid_user_df)
 
@@ -780,6 +793,10 @@ protegR2_server <- function(input, output, session, style = "sidebar", pool = NU
         list(token_value)
       )
       nrow(result) == 1 && result$expiration[1] > now
+    } else if (backend == "local") {
+      # Vérification en mémoire — aucun appel réseau
+      exists(token_value, envir = .local_sessions) &&
+        .local_sessions[[token_value]]$expiration > now
     } else {
       file_path <- paste0("session/", token_value, ".rds")
       s3exist_HL(object = file_path) &&
@@ -856,6 +873,10 @@ protegR2_server <- function(input, output, session, style = "sidebar", pool = NU
         list(token_value)
       )
       result$n > 0
+    } else if (backend == "local") {
+      # Vérification en mémoire — token présent et non expiré
+      exists(token_value, envir = .local_sessions) &&
+        .local_sessions[[token_value]]$expiration > Sys.time()
     } else {
       file_path <- paste0("session/", token_value, ".rds")
       s3exist_HL(object = file_path)

@@ -24,8 +24,13 @@ protegR2_load_modules_UIs <- function(session, tr) {
   config_global <- session$userData$config_global
   req(role)
 
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend <- config_global$protegR2$user_config_backend %||% "none"
+
   # ── CSS masquant les boutons fixes + bouton engrenage flottant ───────────
-  layout_controls <- protegr2_layout_controls(gear = TRUE) # CSS masquant boutons fixes + gear = TRUE pour menu config
+  # gear = FALSE en mode local : les mots de passe sont codés en dur, afficher
+  # l'engrenage de config donnerait une fausse impression de persistance.
+  layout_controls <- protegr2_layout_controls(gear = backend != "local")
 
   # ── Dropdown de sélection de langue ──────────────────────────────────────
   # Construit depuis config_global$supported_idiomas (défini dans global.R).

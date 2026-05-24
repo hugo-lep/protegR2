@@ -30,6 +30,9 @@ protegR2_load_modules_UIs <- function(session, tr) {
   config_global <- session$userData$config_global
   req(role)
 
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend <- config_global$protegR2$user_config_backend %||% "none"
+
   # ── CSS masquant les boutons fixes + pas d'engrenage flottant ────────────
   # gear = FALSE : la configuration est dans le nav_menu() ci-dessous,
   # pas besoin du bouton flottant.
@@ -57,36 +60,48 @@ protegR2_load_modules_UIs <- function(session, tr) {
 
   )
 
-  # ── Panneaux de configuration ──────────────────────────────────────────────
+  # ── Panneaux de configuration (selon le rôle et le backend) ───────────────
+  # Masqués en mode local : les mots de passe sont définis dans
+  # protegR2_local_users.R — l'interface de gestion ne ferait rien d'utile et
+  # donnerait une fausse impression que les changements sont persistés.
+  #
+  # En mode s3 / postgres : tous les utilisateurs voient "Votre compte",
+  # les rôles élevés voient les panneaux supplémentaires selon leur niveau.
 
-  config_panels <- list(
-    nav_panel(title = tr("your_account"), value = "your_account", mod_config_ui1("config"))
-  )
-
-  if (role %in% c("admin", "super_admin", "dev")) {
-    config_panels <- c(config_panels, list(
-      nav_panel(title = tr("admin_access"), value = "admin_access", mod_config_ui2("config"))
-    ))
+  config_panels <- if (backend == "local") {
+    NULL
+  } else {
+    panels_cfg <- list(
+      nav_panel(title = tr("your_account"), value = "your_account", mod_config_ui1("config"))
+    )
+    if (role %in% c("admin", "super_admin", "dev")) {
+      panels_cfg <- c(panels_cfg, list(
+        nav_panel(title = tr("admin_access"), value = "admin_access", mod_config_ui2("config"))
+      ))
+    }
+    if (role %in% c("super_admin", "dev")) {
+      panels_cfg <- c(panels_cfg, list(
+        nav_panel(title = tr("super_admin_access"), value = "super_admin_access", mod_config_ui3("config"))
+      ))
+    }
+    if (role == "dev") {
+      panels_cfg <- c(panels_cfg, list(
+        nav_panel(title = tr("dev_access"), value = "dev_access", mod_config_ui4("config"))
+      ))
+    }
+    panels_cfg
   }
 
-  if (role %in% c("super_admin", "dev")) {
-    config_panels <- c(config_panels, list(
-      nav_panel(title = tr("super_admin_access"), value = "super_admin_access", mod_config_ui3("config"))
+  # Le nav_menu "Configuration" n'est ajouté que si config_panels existe.
+  # En mode local config_panels est NULL → aucun menu de configuration affiché.
+  if (!is.null(config_panels)) {
+    panels <- c(panels, list(
+      do.call(nav_menu, c(
+        list(title = tr("configuration"), icon = icon("gear")),
+        config_panels
+      ))
     ))
   }
-
-  if (role == "dev") {
-    config_panels <- c(config_panels, list(
-      nav_panel(title = tr("dev_access"), value = "dev_access", mod_config_ui4("config"))
-    ))
-  }
-
-  panels <- c(panels, list(
-    do.call(nav_menu, c(
-      list(title = tr("configuration"), icon = icon("gear")),
-      config_panels
-    ))
-  ))
 
   # ── Éléments droite de la navbar ──────────────────────────────────────────
   # nav_spacer() pousse tout ce qui suit vers la droite.

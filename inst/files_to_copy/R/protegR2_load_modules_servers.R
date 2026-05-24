@@ -74,6 +74,15 @@ protegR2_load_modules_servers <- function(sessions,
   #   le rôle de l'utilisateur — il ne montre que les onglets accessibles.
 
   observeEvent(input_main_app$open_config_modal, {
+
+    # ── Guard mode local ────────────────────────────────────────────────────
+    # En mode local les mots de passe sont définis dans protegR2_local_users.R
+    # et ne peuvent pas être modifiés via l'interface. Le bouton engrenage est
+    # normalement masqué par gear = FALSE dans le template, mais ce guard évite
+    # d'ouvrir un modal vide si le bouton était quand même déclenché.
+    backend <- main_session$userData$config_global$protegR2$user_config_backend %||% "none"
+    if (backend == "local") return()
+
     role <- main_session$userData$user_info$user_role()
 
     config_panels <- list(

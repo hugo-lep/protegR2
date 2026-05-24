@@ -1,170 +1,125 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# dev/app.R — Application de test pour le développement local de protegR2
+# pkg_shiny_test/global.R
 # ══════════════════════════════════════════════════════════════════════════════
 #
-# Objectif : tester le package directement depuis les sources, sans pousser
-# sur GitHub ni installer. Chaque modification dans R/ est active immédiatement.
+# App de test pour le développement local de protegR2.
+# Tourne entièrement sans S3 ni PostgreSQL grâce au mode backend "local".
 #
-# ── Comment lancer ──────────────────────────────────────────────────────────
+# ── Comment lancer ───────────────────────────────────────────────────────────
+#     Ouvrir ce fichier dans RStudio → bouton "Run App"
+#     Ou depuis la console (à la RACINE du package) :
+#       shiny::runApp("inst/pkg_shiny_test/")
 #
-#     Ouvrir ce fichier dans RStudio → bouton "Run App" en haut à droite.
-#     Ou depuis la console, à la RACINE du package :
-#       shiny::runApp("dev/")
-#     (Shiny change automatiquement le répertoire de travail vers dev/ au lancement)
+# ── Comptes de test disponibles ──────────────────────────────────────────────
+#     user1 / pass1      (rôle: user)
+#     user2 / pass2      (rôle: user)
+#     admin / pass3      (rôle: admin)
+#     super_admin / pass4 (rôle: super_admin)
+#     dev / pass5        (rôle: dev)
 #
-# ── Prérequis (à faire une seule fois) ─────────────────────────────────────
-#
-#   1. Avoir le fichier inst/pkg_shiny_test/data/config_s3_location.rds # info du dossier s3 à utiliser
-#      Avoir le fichier inst/pkg_shiny_test/data/config_s3_access.rds   # info clé crypté pour S3
-#      Les deux fichiers sont GITIGNORE — ne seront jamais poussé sur GitHub.
-#      Pour plus d'info, voir le package s3db
+# ── Démonstration config_user (layouts multi-pages) ──────────────────────────
+#     user1 voit uniquement la page "home"
+#     user2 voit uniquement la page "demo"
+#     → Même rôle ("user"), pages différentes = séparation rôle / config_user
 #
 # ══════════════════════════════════════════════════════════════════════════════
 
 
 # ── Étape 1 : Charger le package depuis les sources ───────────────────────────
+# Chaque modification dans R/ est active immédiatement sans réinstaller.
 devtools::load_all()
 
 # ── Étape 2 : Charger les bibliothèques nécessaires ───────────────────────────
-#
-# Deux catégories :
-#   A) Packages déclarés dans DESCRIPTION/Imports — chargés automatiquement
-#      par devtools::load_all() via le namespace du package. On les recharge
-#      ici explicitement pour qu'ils soient disponibles dans l'environnement global
-#      (nécessaire pour les fichiers template sourcés à l'étape 3).
-#
-#   B) Packages NON dans DESCRIPTION — utilisés dans les fichiers template
-#      (protegR2.R, modules, etc.) mais pas encore déclarés comme dépendances
-#      du package. À ajouter dans DESCRIPTION au fur et à mesure.
-#
-# Note : si un library() échoue, installer le package manquant avec install.packages().
 library(devtools)
-#document()
-#check()
-#use_package("bslib")
-
-#library(shiny)
-library(bslib)        # layouts Bootstrap 5 (page_fluid, navset_*, etc.)
-#library(dplyr)        # manipulation de données (filter, pull, etc.)
-#library(purrr)        # programmation fonctionnelle (map, walk, etc.)
-#library(stringr)      # manipulation de chaînes (str_c, etc.)
-#library(uuid)         # génération de tokens de session (UUIDgenerate)
-#library(rlang)        # opérateur %||% (ou-si-NULL)
-#library(magrittr)     # opérateur pipe %>%
-#library(cookies)      # gestion des cookies navigateur (add_cookie_handlers, etc.)
-#library(s3db)         # accès à AWS S3 (s3readRDS_HL, s3saveRDS_HL, etc.)
-
-# Packages B — utilisés dans les templates, à ajouter dans DESCRIPTION
-#library(shinyWidgets) # sendSweetAlert() pour les popups d'erreur au login
-#library(shinyjs)      # useShinyjs() dans protegR2_ui()
-#library(sodium)       # password_verify() pour la vérification bcrypt
-#library(utilsHL)      # make_tr() pour les traductions (remotes::install_github("hugo-lep/utilsHL"))
+library(bslib)
+library(bslibHL)
 
 
 # ── Étape 3 : Choix du style de layout ────────────────────────────────────────
 #
 # Changer cette valeur pour tester les différents templates de navigation.
-# Dans un projet utilisateur, ce choix est fait une seule fois via
-# protegR2_init_layout(style) qui copie le bon fichier dans R/.
 #
-#   "sidebar"  → navset_pill_list() — navigation verticale à gauche
-#   "navbar"   → page_navbar()      — barre horizontale en haut
-#   "fixed"    → page_fixed() + navset_tab() + engrenage flottant
-#   "fillable" → page_fillable() + navset_card_underline() + engrenage flottant
+#   "sidebarHL" → bslibHL::page_sidebarHL() — sidebar multi-pages (recommandé)
+#   "navbar"    → page_navbar()             — barre horizontale en haut
+#   "sidebar"   → navset_pill_list()        — navigation verticale (mono-page)
+#   "fluid"     → navset_tab()              — onglets horizontaux (mono-page)
+#   "fixed"     → page_fixed() + navset    — mono-page + engrenage flottant
+#   "fillable"  → page_fillable() + navset — dashboard plein écran
+#
+# Note : la démonstration config_user (user1 vs user2) n'est visible qu'avec
+# les layouts multi-pages : sidebarHL et navbar.
 style <- "sidebarHL"
 
 
 # ── Étape 4 : Sourcer les fichiers template ────────────────────────────────────
 #
-# Ces fichiers vivent dans inst/files_to_copy/ — ils ne font PAS partie du
-# package (ils ne sont pas dans R/). devtools::load_all() ne les charge donc pas.
-# On les source manuellement ici pour les rendre disponibles.
-#
-# C'est exactement ce qui se passe dans un projet utilisateur : ces fichiers
-# sont copiés dans R/ du projet par protegR2_init_project() et
-# protegR2_init_layout(), et R les source automatiquement au démarrage.
-#
-# Chemins relatifs à pkg_shiny_test/ (répertoire courant quand l'app est lancée).
-source("../files_to_copy/R/i18n_db.R")                       # définit i18n_db
-source("../files_to_copy/R/protegR2_login_ui.R")             # protegR2_login_ui()
-source("../files_to_copy/R/protegR2_load_modules_servers.R") # protegR2_load_modules_servers()
-
-# Le template UI est chargé dynamiquement selon le style choisi ci-dessus.
-# Équivalent de ce que protegR2_init_layout(style) copie dans R/ du projet.
+# Ces fichiers ne sont PAS dans R/ — devtools::load_all() ne les charge pas.
+# On les source manuellement ici. Dans un vrai projet, ils sont copiés dans R/
+# par protegR2_init_layout() et sourcés automatiquement par Shiny.
+source("../files_to_copy/R/i18n_db.R")
+source("../files_to_copy/R/protegR2_login_ui.R")
+source("../files_to_copy/R/protegR2_load_modules_servers.R")
 source(paste0("../files_to_copy/template_UIs_style/", style, ".R"))
 
 
 # ── Étape 5 : Ressources statiques ────────────────────────────────────────────
-#
-# addResourcePath("images", "www") mappe le dossier www/ local au préfixe URL
-# /images/ — ce qui permet d'écrire url('/images/background.png') dans le CSS.
-# Convention cohérente avec les projets utilisateurs qui utilisent inst/app/www/
-# + addResourcePath("images", "inst/app/www") dans leur propre global.R.
+# /images/background.png → utilisé dans protegR2_login_ui.R
 addResourcePath("images", "www")
 
-# ── Étape 6 : Configuration de l'application ──────────────────────────────────
 
-# sessions est l'environnement global qui trace toutes les sessions Shiny actives.
-# Dans un projet utilisateur, il est défini dans global.R.
-# Ici on le recrée pour chaque lancement de l'app de test.
+# ── Étape 6 : Environnement des sessions actives ──────────────────────────────
+#
+# Trace toutes les sessions Shiny actives pour la déconnexion forcée
+# (connexion simultanée sur un autre appareil — mécanisme Option B).
+# Défini ici (pas dans le package) car c'est un état global du projet.
 sessions <- new.env(parent = emptyenv())
 
-# Lecture du fichier de localisation S3 (bucket + dossier principal).
-# Ce fichier doit exister dans dev/data/ — voir les prérequis en haut de ce fichier.
-# Si le fichier n'existe pas, le message d'erreur ci-dessous te guidera.
-config_s3_location_path <- "data/config_s3_location.rds"
-if (!file.exists(config_s3_location_path)) {
-  stop(
-    "Fichier manquant : dev/data/config_s3_location.rds\n",
-    "Voir les prérequis en haut de dev/app.R pour créer ce fichier."
-  )
-}
-config_s3_location <- readRDS(config_s3_location_path)
-#readRDS(paste0("dev/",config_s3_location_path))
-# Connexion à S3 — utilise les credentials dans .Renviron
-# Si la connexion échoue, vérifier AWS_ACCESS_KEY_ID etc. dans .Renviron
-s3_connection_HL(config_path = "data/")
 
-# Chargement de la configuration globale depuis S3
-# Ce fichier est créé par protegR2_init_config_global() lors de l'initialisation du projet
-config_global <- s3readRDS_HL(object = "config_files/config_global.rds")
-
-
-#key_fmp_api <- config_global$key_fmp_api
-
-# connecter tunnel SSH: ssh -L 5433:127.0.0.1:5432 hugo@158.69.221.155
-pool <- pool::dbPool(
-  drv      = RPostgres::Postgres(),
-  dbname   = config_global$protegR2$db$dbname,
-  host     = config_global$protegR2$db$host,
-  port     = config_global$protegR2$db$port,
-  user     = config_global$protegR2$db$user,
-  password = config_global$protegR2$db$password,
-  minSize = 2,   # connexions maintenues en permanence
-  maxSize = 10   # plafond selon tes max_connections Postgres
-)
-
-# ── Étape 7 : Overrides locaux de config_global ───────────────────────────────
+# ── Étape 7 : Configuration ───────────────────────────────────────────────────
 #
-# Surcharge les valeurs lues depuis S3 sans modifier le fichier S3.
+# Mode local : aucune connexion S3 ni PostgreSQL requise.
+# protegR2_local_config() retourne un config_global complet avec les 5
+# utilisateurs par défaut et la config_user démo.
+
+#config_global <- protegR2_local_config()            # décommenter pour tester le mode local
+#pool <- NULL                                        # pool inutile en mode local
+
+
+# ── [OPTIONNEL] Basculer vers S3 + PostgreSQL ─────────────────────────────────
+# Pour tester avec les vrais backends, commenter les 2 lignes ci-dessus
+# et décommenter ce bloc. Prérequis : data/config_s3_location.rds,
+# credentials AWS dans .Renviron, tunnel SSH vers Postgres.
 #
-# show_idioma : TRUE  → sélecteur de langue visible (login + app)
-#               FALSE → sélecteur de langue masqué partout
-#config_global$show_idioma <- TRUE
+ s3_connection_HL(config_path = "data/")
+ config_global <- s3readRDS_HL(object = "config_files/config_global.rds")
+ #config_global$protegR2$user_config_backend <- "s3"
+ pool <- pool::dbPool(
+   drv      = RPostgres::Postgres(),
+   dbname   = config_global$protegR2$db$dbname,
+   host     = config_global$protegR2$db$host,
+   port     = config_global$protegR2$db$port,
+   user     = config_global$protegR2$db$user,
+   password = config_global$protegR2$db$password,
+   minSize  = 2,
+   maxSize  = 10
+ )
+pool <- NULL
 
-# supported_idiomas : langues disponibles dans le sélecteur de langue.
-# Chaque entrée est une liste avec :
-#   mini_label → affiché sur le bouton (ex. "FR")
-#   label      → affiché dans le menu déroulant (ex. "Français")
-# Pour retirer une langue, supprimer simplement son entrée.
-#config_global$supported_idiomas <- list(
-#  fr = list(mini_label = "FR", label = "Français"),
-#  en = list(mini_label = "EN", label = "English")#,
-#  es = list(mini_label = "ES", label = "Español")
-#)
 
-# ── Étape 8 : Paramètre de layout ──────────────────────────────────────────────
+# ── Étape 8 : Validation de la configuration au démarrage ────────────────────
 #
-# style est défini à l'étape 3 — il détermine le template sourcé et transmis
-# à protegR2_ui() via server.R. Changer la valeur à l'étape 3 suffit.
+# protegR2_startup_check() vérifie que les ressources nécessaires sont
+# accessibles selon le backend configuré, et affiche des messages d'aide
+# clairs si quelque chose manque.
+#
+# ── Pour tester les avertissements ──────────────────────────────────────────
+# Mode local  : temporairement passer un config_global sans utilisateurs :
+#   protegR2_startup_check(modifyList(config_global,
+#     list(protegR2 = modifyList(config_global$protegR2,
+#       list(local_users_auth = NULL)))))
+#
+# Mode s3     : renommer temporairement users_auth.rds sur S3 et relancer.
+#
+# Mode postgres : passer pool = NULL ou pointer vers une table inexistante.
 
+protegR2_startup_check(config_global, pool = pool)

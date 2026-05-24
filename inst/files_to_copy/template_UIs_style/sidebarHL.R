@@ -53,49 +53,58 @@ protegR2_load_modules_UIs <- function(session, tr) {
   # Retourne NULL si lang_choice est FALSE — ignoré silencieusement par list().
   lang_dropdown <- protegr2_lang_dropdown(config_global, session$userData$idioma())
 
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend <- config_global$protegR2$user_config_backend %||% "none"
+
   # ── Panneaux de configuration (selon le rôle) ─────────────────────────────
-  # Tous les utilisateurs voient "Votre compte".
-  # Les rôles élevés voient les panneaux supplémentaires.
-  config_panels <- list(
-    bslibHL::hl_nav_panel(
-      title = tr("your_account"),
-      value = "your_account",
-      icon  = shiny::icon("user"),
-      mod_config_ui1("config")
+  # Masqués en mode local : les mots de passe et utilisateurs sont définis dans
+  # protegR2_local_users.R — l'interface de gestion ne ferait rien d'utile et
+  # donnerait une fausse impression que les changements sont persistés.
+  #
+  # En mode s3 / postgres : tous les utilisateurs voient "Votre compte",
+  # les rôles élevés voient les panneaux supplémentaires selon leur niveau.
+  config_panels <- if (backend == "local") {
+    NULL
+  } else {
+    panels <- list(
+      bslibHL::hl_nav_panel(
+        title = tr("your_account"),
+        value = "your_account",
+        icon  = shiny::icon("user"),
+        mod_config_ui1("config")
+      )
     )
-  )
-
-  if (role %in% c("admin", "super_admin", "dev")) {
-    config_panels <- c(config_panels, list(
-      bslibHL::hl_nav_panel(
-        title = tr("admin_access"),
-        value = "admin_access",
-        icon  = shiny::icon("users-gear"),
-        mod_config_ui2("config")
-      )
-    ))
-  }
-
-  if (role %in% c("super_admin", "dev")) {
-    config_panels <- c(config_panels, list(
-      bslibHL::hl_nav_panel(
-        title = tr("super_admin_access"),
-        value = "super_admin_access",
-        icon  = shiny::icon("shield-halved"),
-        mod_config_ui3("config")
-      )
-    ))
-  }
-
-  if (role == "dev") {
-    config_panels <- c(config_panels, list(
-      bslibHL::hl_nav_panel(
-        title = tr("dev_access"),
-        value = "dev_access",
-        icon  = shiny::icon("code"),
-        mod_config_ui4("config")
-      )
-    ))
+    if (role %in% c("admin", "super_admin", "dev")) {
+      panels <- c(panels, list(
+        bslibHL::hl_nav_panel(
+          title = tr("admin_access"),
+          value = "admin_access",
+          icon  = shiny::icon("users-gear"),
+          mod_config_ui2("config")
+        )
+      ))
+    }
+    if (role %in% c("super_admin", "dev")) {
+      panels <- c(panels, list(
+        bslibHL::hl_nav_panel(
+          title = tr("super_admin_access"),
+          value = "super_admin_access",
+          icon  = shiny::icon("shield-halved"),
+          mod_config_ui3("config")
+        )
+      ))
+    }
+    if (role == "dev") {
+      panels <- c(panels, list(
+        bslibHL::hl_nav_panel(
+          title = tr("dev_access"),
+          value = "dev_access",
+          icon  = shiny::icon("code"),
+          mod_config_ui4("config")
+        )
+      ))
+    }
+    panels
   }
 
   # ── Rendu : page_sidebarHL ─────────────────────────────────────────────────
@@ -202,10 +211,12 @@ protegR2_load_modules_UIs <- function(session, tr) {
       # ── Groupe de configuration ─────────────────────────────────────────
       # Toujours en dernier — section repliable dans la sidebar.
       # do.call() permet de passer config_panels de longueur variable.
-      do.call(bslibHL::hl_nav_group, c(
-        list(title = tr("configuration"), icon = shiny::icon("gear")),
-        config_panels
-      ))
+      # NULL en mode local : config_panels est NULL, le groupe n'est pas rendu.
+      if (!is.null(config_panels))
+        do.call(bslibHL::hl_nav_group, c(
+          list(title = tr("configuration"), icon = shiny::icon("gear")),
+          config_panels
+        ))
     ),
 
     # ── Panneaux dropdown [OPTIONNEL] ───────────────────────────────────────

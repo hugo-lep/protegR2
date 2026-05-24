@@ -63,6 +63,19 @@ perform_logout <- function(session) {
     )
     message("Token supprimé de protegr2.sessions (postgres)")
 
+  } else if (backend == "local") {
+
+    # ── Suppression en mémoire ────────────────────────────────────────────
+    # Supprime le token courant + nettoie les tokens expirés (évite l'accumulation).
+    all_tokens <- ls(.local_sessions)
+    now        <- Sys.time()
+    for (tok in all_tokens) {
+      if (tok == token_value || .local_sessions[[tok]]$expiration < now) {
+        rm(list = tok, envir = .local_sessions)
+      }
+    }
+    message("Token local supprimé")
+
   } else {
 
     token_on_s3 <- s3list_HL(prefix = "session/") %>%
