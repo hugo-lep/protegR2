@@ -15,7 +15,7 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3
-Imports: 
+Imports:
     bslib,
     cookies,
     DBI,
@@ -38,7 +38,10 @@ Imports:
     tibble,
     utilsHL,
     uuid
-Remotes: 
-    hugo-lep/s3db
+Suggests:
+    bslibHL
+Remotes:
+    hugo-lep/s3db,
+    hugo-lep/bslibHL
 URL: https://github.com/hugo-lep/protegR2
 BugReports: https://github.com/hugo-lep/protegR2/issues
