@@ -46,6 +46,7 @@ protegR2_load_modules_servers <- function(sessions,
   mod_demo_airplane_server("turn_plane")
   mod_fillable_server("fillable_demo")
   mod_demo_sidebar_server("sidebar_demo")
+  mod_user_config_server("user_config_test")
 
   # ── Module de configuration ────────────────────────────────────────────────
   # Reçoit sessions et main_session pour gérer les utilisateurs et les rôles.

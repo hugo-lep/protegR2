@@ -92,7 +92,8 @@ sessions <- new.env(parent = emptyenv())
 #
  s3_connection_HL(config_path = "data/")
  config_global <- s3readRDS_HL(object = "config_files/config_global.rds")
- #config_global$protegR2$user_config_backend <- "s3"
+# config_global$protegR2$user_config_backend <- "s3"
+ config_global$protegR2$user_config_backend <- "postgres"
  pool <- pool::dbPool(
    drv      = RPostgres::Postgres(),
    dbname   = config_global$protegR2$db$dbname,
@@ -103,7 +104,7 @@ sessions <- new.env(parent = emptyenv())
    minSize  = 2,
    maxSize  = 10
  )
-pool <- NULL
+#pool <- NULL
 
 
 # ── Étape 8 : Validation de la configuration au démarrage ────────────────────

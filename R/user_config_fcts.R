@@ -59,6 +59,16 @@ get_user_config <- function(session) {
     # App simple : tous les utilisateurs ont la même expérience.
     return(NULL)
 
+  } else if (backend == "local") {
+
+    # ── Mode local (interne au package, pkg_shiny_test uniquement) ───────────
+    # "local" est un 4e mode invisible pour l'utilisateur final. Il permet de
+    # faire tourner pkg_shiny_test sans S3 ni postgres : users_auth est chargé
+    # depuis le code R, les sessions sont en mémoire (.local_sessions).
+    # Par conception, ce mode est read-only — tout est perdu au restart du
+    # processus R. Stocker une config utilisateur ici n'aurait pas de sens.
+    return(NULL)
+
   } else if (backend == "s3") {
 
     # ── Lecture sur S3 ───────────────────────────────────────────────────────
@@ -136,8 +146,10 @@ set_user_config <- function(data, session) {
   pool    <- session$userData$pool
   user    <- session$userData$user_info$valid_user()
 
-  # Sécurité : ne pas écrire si l'utilisateur n'est pas connecté ou backend = "none"
-  if (is.null(user) || backend == "none") return(invisible(NULL))
+  # Sécurité : ne pas écrire si l'utilisateur n'est pas connecté, ou si le
+  # backend ne supporte pas la persistance ("none" = pas de config utilisateur,
+  # "local" = mode test read-only, sessions en mémoire perdues au restart).
+  if (is.null(user) || backend %in% c("none", "local")) return(invisible(NULL))
 
   if (backend == "s3") {
 

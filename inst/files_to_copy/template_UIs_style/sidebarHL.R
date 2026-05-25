@@ -195,6 +195,17 @@ protegR2_load_modules_UIs <- function(session, tr) {
         mod_demo1_ui("demo1", tr)
       ),
 
+      # ── Panneau de test config utilisateur ─────────────────────────────
+      # Visible peu importe le backend — affiche NULL en mode none/local,
+      # lit/écrit sur S3 en mode s3, dans postgres en mode postgres.
+      # À retirer dans un vrai projet.
+      bslibHL::hl_nav_panel(
+        title = "Test config_user",
+        value = "user_config_test",
+        icon  = shiny::icon("vials"),
+        mod_user_config_ui("user_config_test")
+      ),
+
       # ── Exemple de groupe collapsible ──────────────────────────────────
       # Un hl_nav_group() crée une section repliable dans la sidebar.
       # Décommenter et adapter à tes besoins.

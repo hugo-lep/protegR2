@@ -34,23 +34,27 @@ addResourcePath("images", "inst/app/www")
 
 sessions <- new.env(parent = emptyenv())
 
+# Pool PostgreSQL — NULL par défaut (modes "none" et "s3").
+# En mode "postgres" : remplacer par pool::dbPool(...) ci-dessous.
+# server.R passe toujours pool = pool à protegR2_server() — ne pas y toucher.
+pool <- NULL
+
 # * ------ AWS connect + load config --------------------------------------
 config_s3_location <- read_rds("inst/app/data/config_s3_location.rds")
 config_s3_access <- read_rds("inst/app/data/config_s3_access.rds")
 
 s3_connection_HL()
 config_global <- s3readRDS_HL(object = "config_files/config_global.rds")
-key_fmp_api <- config_global$key_fmp_api
-save_path  <- "data/cies_order.rds"
+
 
 # connecter tunnel SSH: ssh -L 5433:127.0.0.1:5432 hugo@158.69.221.155
-con <- dbConnect(
+pool <- dbPool(
   RPostgres::Postgres(),
-  dbname   = "stocktools",
-  host     = "localhost",
-  port     = 5433,
-  user     = config_global$DB_credential$user,
-  password = config_global$DB_credential$password
+  dbname   = config_global$protegR2$db$dbname,
+  host     = config_global$protegR2$db$host,
+  port     = config_global$protegR2$db$port,
+  user     = config_global$protegR2$db$user,
+  password = config_global$protegR2$db$password
 )
 
 # global.R — créé une seule fois au démarrage de l'app

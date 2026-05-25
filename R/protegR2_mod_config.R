@@ -292,35 +292,42 @@ mod_config_server <- function(id,
 
     ns <- session$ns
     config_s3_location <- session$userData$config_s3_location
-    print(str_c("à partir de protegR2_mod_config_server: ", config_s3_location))
 
     # * ------ My account server ---------------------------------------------------------------
     observeEvent(input$save_password, {
-      print("observeEvent(input$save_password, ....")
-      current_cookie <- get_cookie(session$userData$config_global$protegR2$cookie_name)
-      print(session$userData$config_global$protegR2$cookie_name)
-      print(str_c("from user config (current_cookie): ", current_cookie))
-      print(str_c("from user config (config_s3_location)", config_s3_location))
-      cookie_validator <- s3readRDS_HL(paste0("session/", current_cookie, ".rds"))
-      print(str_c("from user config (cookie_validator)", cookie_validator))
 
-      # Vérification du mot de passe précédent
-      if (!password_verify(cookie_validator[1, "hash_password"][[1]], input$previous_password)) {
+      current_username <- session$userData$user_info$valid_user()$username
+      backend          <- session$userData$config_global$protegR2$user_config_backend %||% "none"
+
+      # ── Récupération du hash actuel depuis users_auth ─────────────────────
+      # Avant Phase 1.1, on lisait hash_password depuis le fichier de session S3.
+      # Ce champ a été retiré des sessions pour des raisons de sécurité — il ne
+      # doit exister que dans users_auth, pas dans les tokens de session.
+      # On lit donc users_auth directement selon le backend.
+      current_hash <- if (backend == "local") {
+        ua <- session$userData$config_global$protegR2$local_users_auth
+        ua$hash_password[ua$username == current_username]
+      } else {
+        # s3 et postgres : users_auth toujours sur S3
+        ua <- s3readRDS_HL("config_files/users_auth.rds")
+        ua$hash_password[ua$username == current_username]
+      }
+
+      # ── Vérification du mot de passe actuel ──────────────────────────────
+      if (length(current_hash) == 0 ||
+          !password_verify(current_hash[[1]], input$previous_password)) {
         showNotification("Mot de passe actuel incorrect.", type = "error")
         return(NULL)
       }
 
       if (!protegR2_fct_validate_password(input$password1, input$password2)) return(NULL)
 
-      print("avant changement de password")
-      print(str_c("username: ", session$userData$user_info$valid_user()$username))
+      protegR2_fct_change_pwd(
+        username = current_username,
+        new_hash = password_store(input$password1)
+      )
 
-      protegR2_fct_change_pwd(username = session$userData$user_info$valid_user()$username,
-                             new_hash = password_store(input$password1),
-                             config_s3_location = config_s3_location)
-      print("après changement de password")
-
-      # Réinitialisation des champs avec map
+      # Réinitialisation des champs
       password_ids <- c("password1", "password2", "previous_password")
       map(password_ids, ~ updateTextInput(session, inputId = .x, value = ""))
 
@@ -415,8 +422,7 @@ mod_config_server <- function(id,
       if (!protegR2_fct_validate_password(input$password3, input$password4)) return(NULL)
 
       protegR2_fct_change_pwd(username = selected_user() %>% pull(username),
-                             new_hash = password_store(input$password3),
-                             config_s3_location)
+                             new_hash = password_store(input$password3))
 
 
       cookie_validator_delete(input$select_user, session)

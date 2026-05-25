@@ -213,25 +213,56 @@ cookie_auto_login <- function(input, session) {
   } else {
 
     # ── Vérification sur S3 ────────────────────────────────────────────────
+    #
+    # Deux niveaux de sévérité distincts pour les logs :
+    #
+    #   Cas normaux (pas de fichier, session expirée, fingerprint mismatch)
+    #   → retour NULL silencieux, pas de log. C'est le comportement attendu
+    #     quand l'utilisateur n'a pas de session active.
+    #
+    #   Erreurs infrastructure (S3 inaccessible, credentials invalides, réseau)
+    #   → warning() visible dans les logs serveur. Le comportement utilisateur
+    #     est identique (retour à la page de login), mais l'erreur est traçable.
+    #     warning() survivra à la migration vers logger::log_warn() en Phase 4.5.
+    #
+    # s3exist_HL est protégé par un tryCatch : sans ça, une erreur réseau ici
+    # remontait jusqu'à l'observer Shiny et pouvait crasher la session.
+
     file_path <- paste0("session/", cookie_token, ".rds")
-    if (s3exist_HL(object = file_path)) {
 
-      S3_save_cookie <- tryCatch(
-        s3readRDS_HL(file_path),
-        error = function(e) {
-          message("Erreur lors de la lecture du cookie : ", e$message)
-          return(NULL)
-        }
-      )
-
-      if (!is.null(S3_save_cookie)) {
-        S3_save_cookie_valid <- S3_save_cookie %>%
-          filter(finger_print == finger_print_var$fingerprint,
-                 expiration > Sys.time())
-
-        if (nrow(S3_save_cookie_valid) == 1) return(S3_save_cookie_valid)
+    # ── Étape 1 : vérifier l'existence du fichier de session ────────────────
+    file_exists <- tryCatch(
+      s3exist_HL(object = file_path),
+      error = function(e) {
+        warning("[protegR2] Auto-login — S3 inaccessible (s3exist_HL) : ", e$message)
+        NA  # NA = erreur infrastructure, distinct de FALSE = fichier absent
       }
-    }
+    )
+
+    # Erreur réseau ou credentials → retour NULL sans tenter de lire
+    if (is.na(file_exists)) return(NULL)
+
+    # Fichier absent → session expirée ou jamais créée, cas normal
+    if (!file_exists) return(NULL)
+
+    # ── Étape 2 : lire et valider le fichier de session ──────────────────────
+    S3_save_cookie <- tryCatch(
+      s3readRDS_HL(file_path),
+      error = function(e) {
+        warning("[protegR2] Auto-login — lecture session S3 échouée : ", e$message)
+        NULL
+      }
+    )
+
+    # Lecture échouée (fichier corrompu, accès refusé) → déjà loggué ci-dessus
+    if (is.null(S3_save_cookie)) return(NULL)
+
+    # Validation fingerprint + expiration — cas normaux, pas de log
+    S3_save_cookie_valid <- S3_save_cookie %>%
+      filter(finger_print == finger_print_var$fingerprint,
+             expiration > Sys.time())
+
+    if (nrow(S3_save_cookie_valid) == 1) return(S3_save_cookie_valid)
   }
 
   return(NULL)

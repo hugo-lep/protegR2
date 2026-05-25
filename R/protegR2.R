@@ -233,13 +233,26 @@ protegR2_server <- function(input, output, session, style = "sidebar", pool = NU
   # ── Fonction helper locale : incrément du compteur de brute force ──────────
   #
   # Règle de verrouillage :
-  #   Tentatives 1–4 : compteur incrémenté, pas de verrou
-  #   Tentative 5+   : verrou de 30 secondes
+  #   Tentatives 1 … (max_login_attempts - 1) : compteur incrémenté, pas de verrou
+  #   Tentative max_login_attempts+            : verrou de lockout_duration_s secondes
+  #
+  # Les seuils sont lus depuis config_global$protegR2$security (défini dans
+  # global.R et copié dans session$userData au démarrage). Les valeurs %||%
+  # servent de fallback si la clé est absente d'une config ancienne.
+  #
+  # Note : increment_failures est une closure — elle capture `session` par
+  # référence. session$userData$config_global est évalué à l'appel (pas à la
+  # définition), donc les valeurs sont toujours fraîches et correctes.
+  #
   # Le verrou est local à la session — il disparaît si l'utilisateur ferme
-  # et rouvre l'onglet. Un verrou persistant sur S3 est prévu en Phase 2.6.
+  # et rouvre l'onglet. Un verrou persistant sur S3 est prévu en Phase 2.7.
   increment_failures <- function(failures) {
+    security     <- session$userData$config_global$protegR2$security
+    max_attempts <- security$max_login_attempts %||% 5
+    lockout_s    <- security$lockout_duration_s %||% 30
+
     new_count    <- failures$count + 1
-    locked_until <- if (new_count >= 5) Sys.time() + 30 else NULL
+    locked_until <- if (new_count >= max_attempts) Sys.time() + lockout_s else NULL
     list(count = new_count, locked_until = locked_until)
   }
 
@@ -758,8 +771,9 @@ protegR2_server <- function(input, output, session, style = "sidebar", pool = NU
   #   reactive(reactiveValuesToList(input)) crée un reactive qui "écoute" TOUS
   #   les inputs Shiny en même temps. Il se déclenche à chaque interaction
   #   (clic, saisie, slider, etc.).
-  #   throttle(240000) limite la fréquence : même si l'utilisateur clique
-  #   1000 fois par minute, ce bloc s'exécute AU MAXIMUM toutes les 4 minutes.
+  #   throttle(cookie_throttle_ms) limite la fréquence : même si l'utilisateur
+  #   clique 1000 fois par minute, ce bloc s'exécute AU MAXIMUM toutes les
+  #   cookie_throttle_ms millisecondes (défaut : 240 000 ms = 4 minutes).
   #   Pourquoi 4 min ? Pour éviter de bombarder S3 à chaque frappe de touche.
   #   Le cookie est valide pendant inactivity_delay minutes (ex. 60 min) — le
   #   rafraîchir toutes les 4 min est largement suffisant.
@@ -769,7 +783,13 @@ protegR2_server <- function(input, output, session, style = "sidebar", pool = NU
   #     s'exécuter à nouveau ("rate limiting")
   #   - debounce : attend N ms d'inactivité avant de s'exécuter ("trailing edge")
   #   On veut throttle ici pour réagir rapidement à la première interaction.
-  throttled_inputs <- reactive(reactiveValuesToList(input)) %>% throttle(240000)
+  #
+  # La valeur est lue depuis config_global (accessible ici via la closure de
+  # protegR2_server — session$userData$config_global est déjà initialisé à ce
+  # stade). throttle() évalue son argument une seule fois à la création du
+  # reactive, donc on l'extrait d'abord dans une variable locale.
+  cookie_throttle_ms <- session$userData$config_global$protegR2$security$cookie_throttle_ms %||% 240000
+  throttled_inputs   <- reactive(reactiveValuesToList(input)) %>% throttle(cookie_throttle_ms)
 
   observeEvent(throttled_inputs(), {
 
@@ -844,12 +864,17 @@ protegR2_server <- function(input, output, session, style = "sidebar", pool = NU
   # Ce bloc s'exécute une première fois immédiatement quand user_auth() passe
   # de NULL à une valeur (déclencheur réactif). À ce moment, le token vient
   # d'être écrit sur S3 → s3exist_HL() retourne TRUE → rien ne se passe.
-  # Ensuite, invalidateLater(45000) programme une ré-exécution dans 45s,
-  # puis 45s après celle-là, etc. — boucle infinie jusqu'à la fermeture de
-  # la session ou la déconnexion (req() stopperait le cycle si user_auth redevient NULL).
+  # Ensuite, invalidateLater(token_check_interval_ms) programme une ré-exécution
+  # toutes les N secondes (défaut : 45s = 45 000 ms), puis N secondes après
+  # celle-là, etc. — boucle infinie jusqu'à la fermeture de la session ou la
+  # déconnexion (req() stopperait le cycle si user_auth redevient NULL).
+  #
+  # L'intervalle est lu depuis config_global$protegR2$security$token_check_interval_s
+  # (en secondes, converti en ms pour invalidateLater).
   observe({
     req(session$userData$user_info$user_auth())
-    invalidateLater(45000)
+    token_check_ms <- (session$userData$config_global$protegR2$security$token_check_interval_s %||% 45) * 1000
+    invalidateLater(token_check_ms)
 
     token_value <- session$userData$user_info$token_value
     req(token_value)

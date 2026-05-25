@@ -336,6 +336,118 @@ mod_demo_sidebar_server <- function(id) {
 }
 
 
+#' Module de test get_user_config / set_user_config — section UI
+#'
+#' @description
+#' Panneau de test pour valider les fonctions get_user_config() et set_user_config()
+#' dans les trois modes : none, s3, postgres.
+#'
+#' Affiche :
+#'   - Le backend actuel (config_global$protegR2$user_config_backend)
+#'   - La config actuelle lue via get_user_config()
+#'   - Un champ + bouton pour écrire une valeur via set_user_config()
+#'   - La config relue après sauvegarde (confirme le round-trip lecture/écriture)
+#'
+#' @param id ID du module
+#'
+#' @importFrom shiny NS tagList h4 h5 verbatimTextOutput textInput actionButton icon hr
+#' @importFrom bslib card card_header card_body
+#'
+#' @returns UI du module de test config utilisateur
+#' @export
+mod_user_config_ui <- function(id) {
+  ns <- NS(id)
+
+  tagList(
+    h4(tagList(icon("database"), " Test get_user_config / set_user_config")),
+
+    # ── Backend actuel ─────────────────────────────────────────────────────────
+    # Affiché en premier pour comprendre immédiatement le comportement attendu.
+    card(
+      card_header("Backend"),
+      card_body(verbatimTextOutput(ns("backend_info")))
+    ),
+
+    # ── Lecture : get_user_config() ────────────────────────────────────────────
+    # Affiche la structure R complète via str() — plus lisible que dput() pour
+    # des listes imbriquées. Se met à jour après chaque sauvegarde via refresh_trigger.
+    card(
+      card_header("Config actuelle — get_user_config()"),
+      card_body(verbatimTextOutput(ns("current_config")))
+    ),
+
+    hr(),
+
+    # ── Écriture : set_user_config() ───────────────────────────────────────────
+    # Écrit list(protegr2 = list(test = <valeur>)) pour ne pas écraser une
+    # config existante dans d'autres clés du package.
+    h5("Sauvegarder une valeur de test"),
+    textInput(ns("test_value"), label = NULL, value = "hello_world",
+              placeholder = "Valeur à écrire dans config$protegr2$test"),
+    actionButton(ns("save_btn"), label = tagList(icon("floppy-disk"), " Sauvegarder"),
+                 class = "btn-primary")
+  )
+}
+
+
+#' Module de test get_user_config / set_user_config — section serveur
+#'
+#' @param id ID du module
+#'
+#' @importFrom shiny moduleServer renderText reactiveVal observeEvent showNotification
+#' @importFrom rlang %||%
+#'
+#' @returns Calculs nécessaires au UI
+#' @export
+mod_user_config_server <- function(id) {
+  moduleServer(id, function(input, output, session) {
+
+    # ── Déclencheur de rechargement ────────────────────────────────────────────
+    # reactiveVal entier incrémenté après chaque sauvegarde.
+    # Les renderText qui en dépendent se ré-exécutent automatiquement,
+    # simulant un "re-fetch" de la config sans recharger la page.
+    refresh_trigger <- reactiveVal(0)
+
+    # ── Backend ────────────────────────────────────────────────────────────────
+    output$backend_info <- renderText({
+      backend <- session$userData$config_global$protegR2$user_config_backend %||% "none"
+      paste0("user_config_backend = \"", backend, "\"")
+    })
+
+    # ── Lecture de la config ───────────────────────────────────────────────────
+    # refresh_trigger() crée une dépendance réactive : ce bloc se ré-exécute
+    # à chaque incrément, donc après chaque appel à set_user_config().
+    output$current_config <- renderText({
+      refresh_trigger()
+
+      config <- get_user_config(session)
+
+      if (is.null(config)) {
+        "NULL\n(backend = 'none' ou 'local' : aucune config stockée par conception)"
+      } else if (length(config) == 0) {
+        "list()\n(première connexion — aucune config enregistrée pour cet utilisateur)"
+      } else {
+        # capture.output(str()) affiche la structure R exacte, avec indentation.
+        paste(utils::capture.output(utils::str(config)), collapse = "\n")
+      }
+    })
+
+    # ── Sauvegarde ─────────────────────────────────────────────────────────────
+    # On lit la config existante d'abord pour ne modifier que la clé "test",
+    # sans effacer les préférences d'autres packages déjà enregistrées.
+    observeEvent(input$save_btn, {
+      config_actuelle <- get_user_config(session) %||% list()
+      config_actuelle$protegr2$test <- input$test_value
+      set_user_config(config_actuelle, session)
+
+      # Incrémenter le trigger → force la relecture dans renderText ci-dessus
+      refresh_trigger(refresh_trigger() + 1)
+    })
+
+  })
+}
+
+
 #' Module démo pour faire tourner un avion section ui
 #'
 #' @description
