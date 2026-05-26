@@ -6,8 +6,8 @@ library(readr)
 library(shiny)
 
 #database
-#library(pool)
-#library(RPostgres)
+library(pool)
+library(RPostgres)
 
 #tidyverse
 #library(tidyr)
@@ -15,14 +15,16 @@ library(shiny)
 
 #library(dplyr)
 #library(stringr)
-#shiny
 
+#shiny
+library(bslib)
 #library(shinyjs)
 #library(shinyWidgets)
 #perso
-#library(s3db)
+library(s3db)
 #library(utilsHL)
-#library(protegR2)
+library(protegR2)
+
 #autre
 #library(uuid)
 #library(sodium)
